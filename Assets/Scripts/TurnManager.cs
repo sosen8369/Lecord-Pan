@@ -10,12 +10,15 @@ public class TurnManager : MonoBehaviour
     [SerializeField] private GameObject _rhythmManagerObject;
     private IRhythmSystem _rhythmManager;
     private CancellationTokenSource _currentTurnCTS;
+    [Header("UI Managers")]
+    [SerializeField] private CommandUIManager _commandUIManager; // 방금 만든 UI 매니저 연결
 
     [Header("Party Management")]
     // 1~4명까지 자유롭게 넣을 수 있습니다. 
     // 전투 중 교체하고 싶다면 이 리스트의 요소를 바꿔치기하면 됩니다.
     public List<BattleUnit> playerParty = new List<BattleUnit>();
     public List<BattleUnit> enemyParty = new List<BattleUnit>();
+
 
     private async void Start()
     {
@@ -48,21 +51,39 @@ public class TurnManager : MonoBehaviour
         {
             BattleUnit currentAttacker = playerParty[i];
 
-            // 죽은 캐릭터나 빈자리는 건너뜀
             if (currentAttacker == null || currentAttacker.IsDead) continue;
 
             Debug.Log($"--- {currentAttacker.unitName}의 행동 차례 ---");
 
-            // [중요] 타겟팅 대기: 플레이어가 UI에서 적을 클릭할 때까지 여기서 멈춰서 기다립니다.
+            // 1. [연출] 캐릭터 튀어나오고 스포트라이트 ON
+            currentAttacker.SetFocus(true);
+
+            // 2. [행동 선택] 캐릭터 옆에 UI 띄우고 버튼 누를 때까지 무한 대기
+            CommandType selectedCommand = await _commandUIManager.WaitForCommandAsync(currentAttacker);
+            Debug.Log($"{currentAttacker.unitName}가 {selectedCommand} 행동을 선택했습니다.");
+
+            // 향후 '취소(Cancel)' 버튼 추가 시 이전 캐릭터로 돌아가는 로직도 여기에 붙일 수 있습니다.
+
+            // 3. [타겟 선택] 타겟 마우스 클릭 대기
             BattleUnit target = await WaitForPlayerTargetSelection(currentAttacker);
 
             if (target != null)
             {
-                await ExecutePlayerAttack(currentAttacker, target);
+                // 4. [실행] 리듬 게임 및 데미지 적용
+                // 선택한 행동이 스킬인지 기본 공격인지에 따라 넘겨주는 채보(ChartID)를 다르게 할 수 있습니다.
+                await ExecutePlayerAttack(currentAttacker, target, selectedCommand);
             }
+
+            // 5. [연출 복구] 턴 종료 시 제자리로 돌아가고 스포트라이트 OFF
+            currentAttacker.SetFocus(false);
 
             if (CheckBattleEndCondition()) return;
         }
+    }
+    private async Awaitable ExecutePlayerAttack(BattleUnit attacker, BattleUnit target, CommandType command) 
+    {
+        // command 값에 따라 chartId를 "Player_Attack_01"로 할지 "Player_Skill_01"로 할지 분기 처리 가능
+        // ... 기존 로직 ...
     }
 
     // --- 적군 페이즈 ---
