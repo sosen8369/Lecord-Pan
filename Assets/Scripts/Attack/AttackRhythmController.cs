@@ -28,18 +28,31 @@ public class AttackRhythmController : MonoBehaviour
 
     // 다중 공격 타이밍 배열을 인자로 받아 공격 세션을 시작합니다.
     public void StartAttack(float[] timingsMs)
+{
+    // 1. 풀 매니저 존재 여부 및 초기화 확인
+    if (poolManager == null)
     {
-        attackTimingsMs = timingsMs;
-        totalBars = timingsMs.Length;
-        nextSpawnIndex = 0;
-        currentMs = 0f;
-        
-        activeBars.Clear();
-        barQueue.Clear();
-        judgmentManager.Initialize();
-        
-        isPlaying = true;
+        Debug.LogError("Pool Manager가 할당되지 않았습니다!");
+        return;
     }
+
+    // 풀 매니저의 Initialize를 호출하여 딕셔너리와 실제 객체들을 생성합니다.
+    poolManager.Initialize(); 
+
+    // 2. 데이터 초기화
+    attackTimingsMs = timingsMs;
+    totalBars = timingsMs.Length;
+    nextSpawnIndex = 0;
+    currentMs = 0f;
+    
+    activeBars.Clear();
+    barQueue.Clear();
+    
+    if (judgmentManager != null)
+        judgmentManager.Initialize();
+    
+    isPlaying = true;
+}
 
     private void Update()
     {
@@ -60,19 +73,23 @@ public class AttackRhythmController : MonoBehaviour
     }
 
     private void SpawnBar(float targetTimeMs)
-    {
-        GameObject barObj = poolManager.GetFromPool(0, spawnPoint.parent); 
-        Note noteComponent = barObj.GetComponent<Note>();
-        
-        // 델타룬 방식은 단일 버튼(레인 0)을 사용합니다.
-        NoteData data = new NoteData { timeMs = targetTimeMs, lane = 0, type = 0 };
-        noteComponent.Setup(data);
-        noteComponent.Rect.localScale = Vector3.one;
-        noteComponent.Rect.position = spawnPoint.position;
+{
+    GameObject barObj = poolManager.GetFromPool(0, spawnPoint.parent); 
+    
+    // 풀에서 객체를 가져오지 못한 경우 함수를 종료하여 다음 에러를 방지합니다.
+    if (barObj == null) return;
 
-        activeBars.Add(noteComponent);
-        barQueue.Enqueue(noteComponent);
-    }
+    Note noteComponent = barObj.GetComponent<Note>();
+    if (noteComponent == null) return;
+    
+    NoteData data = new NoteData { timeMs = targetTimeMs, lane = 0, type = 0 };
+    noteComponent.Setup(data);
+    noteComponent.Rect.localScale = Vector3.one;
+    noteComponent.Rect.position = spawnPoint.position;
+
+    activeBars.Add(noteComponent);
+    barQueue.Enqueue(noteComponent);
+}
 
     private void UpdateBarPositions()
     {

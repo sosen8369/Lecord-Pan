@@ -1082,12 +1082,12 @@
         },
         {
             "name": "AttackPlayer",
-            "id": "9ce985e0-17e2-4774-b24e-77f14be7b280",
+            "id": "149cebf8-1d31-4129-91d0-74a4bbeb2334",
             "actions": [
                 {
-                    "name": "Attack",
+                    "name": "AttackAction",
                     "type": "Button",
-                    "id": "7bbb1324-628e-49c6-9d5b-6a3f4f28b776",
+                    "id": "6403d427-63fc-45b9-884f-fa83f87a2cce",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -1097,12 +1097,12 @@
             "bindings": [
                 {
                     "name": "",
-                    "id": "01fc6c39-ed28-4063-a866-e06885e052ca",
-                    "path": "",
+                    "id": "a9071ca8-3e1d-41ab-8109-15ef43197225",
+                    "path": "<Keyboard>/space",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Attack",
+                    "action": "AttackAction",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

@@ -18,34 +18,40 @@ public class ObjectPoolManager : MonoBehaviour
     // 타입별로 공식 ObjectPool을 저장하는 딕셔너리
     private Dictionary<int, IObjectPool<GameObject>> pools = new Dictionary<int, IObjectPool<GameObject>>();
 
-    public void Initialize()
+    // ObjectPoolManager.cs 내부
+public void Initialize()
+{
+    if (configs == null || configs.Count == 0)
     {
-        foreach (var config in configs)
+        Debug.LogWarning("PoolConfig가 비어있습니다. 인스펙터를 확인하세요.");
+        return;
+    }
+
+    foreach (var config in configs)
+    {
+        if (!pools.ContainsKey(config.type))
         {
-            if (!pools.ContainsKey(config.type))
+            var targetPrefab = config.prefab;
+            if (targetPrefab == null)
             {
-                // 로직 분리를 위해 지역 변수 캡처
-                var targetPrefab = config.prefab;
-
-                pools[config.type] = new ObjectPool<GameObject>(
-                    createFunc: () => Instantiate(targetPrefab, this.transform), // 생성
-                    actionOnGet: (obj) => obj.SetActive(true),                   // 대여 시
-                    actionOnRelease: (obj) => obj.SetActive(false),               // 반환 시
-                    actionOnDestroy: (obj) => Destroy(obj),                      // 삭제 시
-                    collectionCheck: true,                                       // 중복 반환 검사
-                    defaultCapacity: config.defaultCapacity,
-                    maxSize: config.maxSize
-                );
-
-                // 초기 할당 (Pre-warm)
-                List<GameObject> temp = new List<GameObject>();
-                for(int i = 0; i < config.defaultCapacity; i++) 
-                    temp.Add(pools[config.type].Get());
-                foreach(var obj in temp) 
-                    pools[config.type].Release(obj);
+                Debug.LogError($"타입 {config.type}의 프리팹이 할당되지 않았습니다.");
+                continue;
             }
+
+            pools[config.type] = new ObjectPool<GameObject>(
+                createFunc: () => Instantiate(targetPrefab, this.transform),
+                actionOnGet: (obj) => obj.SetActive(true),
+                actionOnRelease: (obj) => obj.SetActive(false),
+                actionOnDestroy: (obj) => Destroy(obj),
+                collectionCheck: true,
+                defaultCapacity: config.defaultCapacity,
+                maxSize: config.maxSize
+            );
+
+            Debug.Log($"[Pool] 타입 {config.type} 초기화 완료 (기본 용량: {config.defaultCapacity})");
         }
     }
+}
 
     public GameObject GetFromPool(int type, Transform parent)
     {

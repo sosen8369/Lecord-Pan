@@ -1168,12 +1168,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         },
         {
             ""name"": ""AttackPlayer"",
-            ""id"": ""9ce985e0-17e2-4774-b24e-77f14be7b280"",
+            ""id"": ""149cebf8-1d31-4129-91d0-74a4bbeb2334"",
             ""actions"": [
                 {
-                    ""name"": ""Attack"",
+                    ""name"": ""AttackAction"",
                     ""type"": ""Button"",
-                    ""id"": ""7bbb1324-628e-49c6-9d5b-6a3f4f28b776"",
+                    ""id"": ""6403d427-63fc-45b9-884f-fa83f87a2cce"",
                     ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
@@ -1183,12 +1183,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             ""bindings"": [
                 {
                     ""name"": """",
-                    ""id"": ""01fc6c39-ed28-4063-a866-e06885e052ca"",
-                    ""path"": """",
+                    ""id"": ""a9071ca8-3e1d-41ab-8109-15ef43197225"",
+                    ""path"": ""<Keyboard>/space"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Attack"",
+                    ""action"": ""AttackAction"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1289,7 +1289,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_RhythmPlayer_Lane3 = m_RhythmPlayer.FindAction("Lane 3", throwIfNotFound: true);
         // AttackPlayer
         m_AttackPlayer = asset.FindActionMap("AttackPlayer", throwIfNotFound: true);
-        m_AttackPlayer_Attack = m_AttackPlayer.FindAction("Attack", throwIfNotFound: true);
+        m_AttackPlayer_AttackAction = m_AttackPlayer.FindAction("AttackAction", throwIfNotFound: true);
     }
 
     ~@InputSystem_Actions()
@@ -1881,7 +1881,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     // AttackPlayer
     private readonly InputActionMap m_AttackPlayer;
     private List<IAttackPlayerActions> m_AttackPlayerActionsCallbackInterfaces = new List<IAttackPlayerActions>();
-    private readonly InputAction m_AttackPlayer_Attack;
+    private readonly InputAction m_AttackPlayer_AttackAction;
     /// <summary>
     /// Provides access to input actions defined in input action map "AttackPlayer".
     /// </summary>
@@ -1894,9 +1894,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public AttackPlayerActions(@InputSystem_Actions wrapper) { m_Wrapper = wrapper; }
         /// <summary>
-        /// Provides access to the underlying input action "AttackPlayer/Attack".
+        /// Provides access to the underlying input action "AttackPlayer/AttackAction".
         /// </summary>
-        public InputAction @Attack => m_Wrapper.m_AttackPlayer_Attack;
+        public InputAction @AttackAction => m_Wrapper.m_AttackPlayer_AttackAction;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1923,9 +1923,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         {
             if (instance == null || m_Wrapper.m_AttackPlayerActionsCallbackInterfaces.Contains(instance)) return;
             m_Wrapper.m_AttackPlayerActionsCallbackInterfaces.Add(instance);
-            @Attack.started += instance.OnAttack;
-            @Attack.performed += instance.OnAttack;
-            @Attack.canceled += instance.OnAttack;
+            @AttackAction.started += instance.OnAttackAction;
+            @AttackAction.performed += instance.OnAttackAction;
+            @AttackAction.canceled += instance.OnAttackAction;
         }
 
         /// <summary>
@@ -1937,9 +1937,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="AttackPlayerActions" />
         private void UnregisterCallbacks(IAttackPlayerActions instance)
         {
-            @Attack.started -= instance.OnAttack;
-            @Attack.performed -= instance.OnAttack;
-            @Attack.canceled -= instance.OnAttack;
+            @AttackAction.started -= instance.OnAttackAction;
+            @AttackAction.performed -= instance.OnAttackAction;
+            @AttackAction.canceled -= instance.OnAttackAction;
         }
 
         /// <summary>
@@ -2231,11 +2231,11 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     public interface IAttackPlayerActions
     {
         /// <summary>
-        /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "AttackAction" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnAttack(InputAction.CallbackContext context);
+        void OnAttackAction(InputAction.CallbackContext context);
     }
 }
