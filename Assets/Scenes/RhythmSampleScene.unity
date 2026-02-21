@@ -278,7 +278,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -50, y: 600}
+  m_AnchoredPosition: {x: -150, y: 600}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &383385018
@@ -659,7 +659,7 @@ MonoBehaviour:
   poolManager: {fileID: 674266114}
   audioSources:
   - {fileID: 458786808}
-  noteLeadTimeSec: 3
+  noteLeadTimeSec: 0.6
   tapNotePrefab: {fileID: 8061821406341785445, guid: a558e46acea53254d8bf0801faf999c6, type: 3}
   laneParents:
   - {fileID: 232179063}
@@ -1068,7 +1068,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -150, y: 600}
+  m_AnchoredPosition: {x: -50, y: 600}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1831967422

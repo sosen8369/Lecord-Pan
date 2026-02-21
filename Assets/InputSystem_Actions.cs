@@ -1165,6 +1165,34 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""AttackPlayer"",
+            ""id"": ""9ce985e0-17e2-4774-b24e-77f14be7b280"",
+            ""actions"": [
+                {
+                    ""name"": ""Attack"",
+                    ""type"": ""Button"",
+                    ""id"": ""7bbb1324-628e-49c6-9d5b-6a3f4f28b776"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""01fc6c39-ed28-4063-a866-e06885e052ca"",
+                    ""path"": """",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Attack"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": [
@@ -1259,6 +1287,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_RhythmPlayer_Lane1 = m_RhythmPlayer.FindAction("Lane 1", throwIfNotFound: true);
         m_RhythmPlayer_Lane2 = m_RhythmPlayer.FindAction("Lane 2", throwIfNotFound: true);
         m_RhythmPlayer_Lane3 = m_RhythmPlayer.FindAction("Lane 3", throwIfNotFound: true);
+        // AttackPlayer
+        m_AttackPlayer = asset.FindActionMap("AttackPlayer", throwIfNotFound: true);
+        m_AttackPlayer_Attack = m_AttackPlayer.FindAction("Attack", throwIfNotFound: true);
     }
 
     ~@InputSystem_Actions()
@@ -1266,6 +1297,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         UnityEngine.Debug.Assert(!m_Player.enabled, "This will cause a leak and performance issues, InputSystem_Actions.Player.Disable() has not been called.");
         UnityEngine.Debug.Assert(!m_UI.enabled, "This will cause a leak and performance issues, InputSystem_Actions.UI.Disable() has not been called.");
         UnityEngine.Debug.Assert(!m_RhythmPlayer.enabled, "This will cause a leak and performance issues, InputSystem_Actions.RhythmPlayer.Disable() has not been called.");
+        UnityEngine.Debug.Assert(!m_AttackPlayer.enabled, "This will cause a leak and performance issues, InputSystem_Actions.AttackPlayer.Disable() has not been called.");
     }
 
     /// <summary>
@@ -1845,6 +1877,102 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     /// Provides a new <see cref="RhythmPlayerActions" /> instance referencing this action map.
     /// </summary>
     public RhythmPlayerActions @RhythmPlayer => new RhythmPlayerActions(this);
+
+    // AttackPlayer
+    private readonly InputActionMap m_AttackPlayer;
+    private List<IAttackPlayerActions> m_AttackPlayerActionsCallbackInterfaces = new List<IAttackPlayerActions>();
+    private readonly InputAction m_AttackPlayer_Attack;
+    /// <summary>
+    /// Provides access to input actions defined in input action map "AttackPlayer".
+    /// </summary>
+    public struct AttackPlayerActions
+    {
+        private @InputSystem_Actions m_Wrapper;
+
+        /// <summary>
+        /// Construct a new instance of the input action map wrapper class.
+        /// </summary>
+        public AttackPlayerActions(@InputSystem_Actions wrapper) { m_Wrapper = wrapper; }
+        /// <summary>
+        /// Provides access to the underlying input action "AttackPlayer/Attack".
+        /// </summary>
+        public InputAction @Attack => m_Wrapper.m_AttackPlayer_Attack;
+        /// <summary>
+        /// Provides access to the underlying input action map instance.
+        /// </summary>
+        public InputActionMap Get() { return m_Wrapper.m_AttackPlayer; }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Enable()" />
+        public void Enable() { Get().Enable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Disable()" />
+        public void Disable() { Get().Disable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.enabled" />
+        public bool enabled => Get().enabled;
+        /// <summary>
+        /// Implicitly converts an <see ref="AttackPlayerActions" /> to an <see ref="InputActionMap" /> instance.
+        /// </summary>
+        public static implicit operator InputActionMap(AttackPlayerActions set) { return set.Get(); }
+        /// <summary>
+        /// Adds <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <param name="instance">Callback instance.</param>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c> or <paramref name="instance"/> have already been added this method does nothing.
+        /// </remarks>
+        /// <seealso cref="AttackPlayerActions" />
+        public void AddCallbacks(IAttackPlayerActions instance)
+        {
+            if (instance == null || m_Wrapper.m_AttackPlayerActionsCallbackInterfaces.Contains(instance)) return;
+            m_Wrapper.m_AttackPlayerActionsCallbackInterfaces.Add(instance);
+            @Attack.started += instance.OnAttack;
+            @Attack.performed += instance.OnAttack;
+            @Attack.canceled += instance.OnAttack;
+        }
+
+        /// <summary>
+        /// Removes <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <remarks>
+        /// Calling this method when <paramref name="instance" /> have not previously been registered has no side-effects.
+        /// </remarks>
+        /// <seealso cref="AttackPlayerActions" />
+        private void UnregisterCallbacks(IAttackPlayerActions instance)
+        {
+            @Attack.started -= instance.OnAttack;
+            @Attack.performed -= instance.OnAttack;
+            @Attack.canceled -= instance.OnAttack;
+        }
+
+        /// <summary>
+        /// Unregisters <param cref="instance" /> and unregisters all input action callbacks via <see cref="AttackPlayerActions.UnregisterCallbacks(IAttackPlayerActions)" />.
+        /// </summary>
+        /// <seealso cref="AttackPlayerActions.UnregisterCallbacks(IAttackPlayerActions)" />
+        public void RemoveCallbacks(IAttackPlayerActions instance)
+        {
+            if (m_Wrapper.m_AttackPlayerActionsCallbackInterfaces.Remove(instance))
+                UnregisterCallbacks(instance);
+        }
+
+        /// <summary>
+        /// Replaces all existing callback instances and previously registered input action callbacks associated with them with callbacks provided via <param cref="instance" />.
+        /// </summary>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c>, calling this method will only unregister all existing callbacks but not register any new callbacks.
+        /// </remarks>
+        /// <seealso cref="AttackPlayerActions.AddCallbacks(IAttackPlayerActions)" />
+        /// <seealso cref="AttackPlayerActions.RemoveCallbacks(IAttackPlayerActions)" />
+        /// <seealso cref="AttackPlayerActions.UnregisterCallbacks(IAttackPlayerActions)" />
+        public void SetCallbacks(IAttackPlayerActions instance)
+        {
+            foreach (var item in m_Wrapper.m_AttackPlayerActionsCallbackInterfaces)
+                UnregisterCallbacks(item);
+            m_Wrapper.m_AttackPlayerActionsCallbackInterfaces.Clear();
+            AddCallbacks(instance);
+        }
+    }
+    /// <summary>
+    /// Provides a new <see cref="AttackPlayerActions" /> instance referencing this action map.
+    /// </summary>
+    public AttackPlayerActions @AttackPlayer => new AttackPlayerActions(this);
     private int m_KeyboardMouseSchemeIndex = -1;
     /// <summary>
     /// Provides access to the input control scheme.
@@ -2094,5 +2222,20 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLane3(InputAction.CallbackContext context);
+    }
+    /// <summary>
+    /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "AttackPlayer" which allows adding and removing callbacks.
+    /// </summary>
+    /// <seealso cref="AttackPlayerActions.AddCallbacks(IAttackPlayerActions)" />
+    /// <seealso cref="AttackPlayerActions.RemoveCallbacks(IAttackPlayerActions)" />
+    public interface IAttackPlayerActions
+    {
+        /// <summary>
+        /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnAttack(InputAction.CallbackContext context);
     }
 }
