@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public class RhythmLogicController : MonoBehaviour
 {
@@ -11,6 +12,20 @@ public class RhythmLogicController : MonoBehaviour
 
     [Header("Audio")]
     [SerializeField] private AudioSource[] audioSources; // 재생 중인 다중 트랙 오디오
+
+    [Header("Game Settings")]
+    [SerializeField] private float noteLeadTimeSec = 2.0f; // 스폰에서 판정선까지의 이동 시간(초)
+
+    [Header("Note Spawning")]
+    [SerializeField] private GameObject tapNotePrefab;  // 테스트용 큐브 또는 이미지
+    [SerializeField] private Transform[] laneParents;  // 4개의 레인 시작 지점 (Transform 배열)
+    [SerializeField] private RectTransform judgmentLine; // 판정선 위치 (Y 좌표 기준점)
+
+    private int nextSpawnIndex = 0; // 다음 생성할 노트의 배열 인덱스
+    private List<GameObject> activeNotes = new List<GameObject>(); // 현재 화면에 떠 있는 노트들
+    private Queue<Note>[] laneNoteQueues = new Queue<Note>[4];
+    
+    private bool isPlaying = false; // 메인 루프 가동 여부
 
     // 시간 계산용 내부 변수
     private double dspStartTime;         // 게임이 시작된 정확한 하드웨어 시간
@@ -109,7 +124,28 @@ public class RhythmLogicController : MonoBehaviour
 
     public void StartRhythmLoop()
     {
-        // 오디오 스케줄링 및 업데이트 루프 가동 로직 대기 위치
+        // 현재 하드웨어 시간을 가져옵니다.
+        double currentTime = AudioSettings.dspTime;
+        
+        // 오디오가 실제로 재생될 미래의 시간을 계산합니다.
+        double scheduledTime = currentTime + noteLeadTimeSec;
+
+        // 시간 계산용 기준 변수들을 초기화합니다.
+        dspStartTime = scheduledTime;
+        accumulatedPauseTime = 0;
+        isPaused = false;
+
+        // 배열에 등록된 모든 오디오 트랙을 예약 재생합니다.
+        foreach (var source in audioSources)
+        {
+            if (source.clip != null)
+            {
+                source.PlayScheduled(scheduledTime);
+            }
+        }
+
+        // Update 루프가 동작하도록 플래그를 활성화합니다.
+        isPlaying = true;
     }
 
     public void StopAllAudio()
@@ -125,5 +161,64 @@ public class RhythmLogicController : MonoBehaviour
     public void ResetSessionData()
     {
         // 강제 종료 시 누적 점수 및 데이터 초기화 로직 대기 위치
+    }
+
+    private void Update()
+    {
+        if (!isPlaying || isPaused) return;
+
+        float currentMs = CurrentMusicTimeMs;
+
+        // 1. 노트 스폰 검사 (Spawn Check)
+        // 현재 시간 + 리드 타임이 노트의 목표 시간보다 크면 스폰합니다.
+        while (nextSpawnIndex < currentChart.notes.Length && 
+               currentMs + (noteLeadTimeSec * 1000f) >= currentChart.notes[nextSpawnIndex].timeMs)
+        {
+            SpawnNote(currentChart.notes[nextSpawnIndex]);
+            nextSpawnIndex++;
+        }
+
+        // 2. 노트 위치 갱신 (Movement Update)
+        UpdateNotePositions(currentMs);
+    }
+
+    private void SpawnNote(NoteData note)
+    {
+        // 원래는 오브젝트 풀러를 사용해야 하지만, 지금은 테스트를 위해 Instantiate를 사용합니다.
+        GameObject noteObj = Instantiate(tapNotePrefab, laneParents[note.lane]);
+        
+        // 노트 객체에 자신의 데이터를 저장하거나 초기화하는 로직 (나중에 확장)
+        activeNotes.Add(noteObj);
+        
+        // 테스트용: 노트 객체의 이름을 타겟 시간으로 설정하여 구분
+        noteObj.name = $"Note_{note.timeMs}";
+    }
+
+    private void UpdateNotePositions(float currentMs)
+    {
+        for (int i = activeNotes.Count - 1; i >= 0; i--)
+        {
+            GameObject noteObj = activeNotes[i];
+            // 예시로 이름에 저장된 타겟 시간을 파싱하여 사용 (실제로는 클래스로 관리)
+            float targetTimeMs = float.Parse(noteObj.name.Split('_')[1]);
+            
+            // 판정선과의 시간 차이 계산
+            float timeDiff = targetTimeMs - currentMs;
+
+            // 시간 차에 따른 Y축 위치 계산 (단순 선형 이동)
+            // 배속 이벤트(SpeedEvent)는 나중에 이 공식에 multiplier를 곱해 적용합니다.
+            float yPos = (timeDiff / 1000f) * (judgmentLine.anchoredPosition.y / noteLeadTimeSec);
+            
+            // 판정선 위치를 기준으로 오프셋 이동
+            RectTransform rt = noteObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(0, yPos + judgmentLine.anchoredPosition.y);
+
+            // 판정선을 지나쳐서 화면 밖으로 완전히 나간 경우 (예: -200ms) 일단 삭제
+            if (timeDiff < -200f)
+            {
+                activeNotes.RemoveAt(i);
+                Destroy(noteObj);
+            }
+        }
     }
 }
