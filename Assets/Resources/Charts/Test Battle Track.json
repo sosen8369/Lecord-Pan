@@ -1,0 +1,47 @@
+{
+  "title": "Test Battle Track",
+  "artist": "Sound Team",
+  "audioOffsetMs": 0.0,
+  "bpmEvents": [
+    {
+      "timeMs": 0.0,
+      "bpm": 120.0
+    }
+  ],
+  "speedEvents": [
+    {
+      "timeMs": 0.0,
+      "multiplier": 1.0
+    },
+    {
+      "timeMs": 10000.0,
+      "multiplier": 1.5
+    }
+  ],
+  "notes": [
+    {
+      "type": 0,
+      "timeMs": 2000.0,
+      "lane": 0,
+      "duration": 0.0
+    },
+    {
+      "type": 0,
+      "timeMs": 2500.0,
+      "lane": 1,
+      "duration": 0.0
+    },
+    {
+      "type": 1,
+      "timeMs": 3000.0,
+      "lane": 2,
+      "duration": 1000.0
+    },
+    {
+      "type": 0,
+      "timeMs": 4500.0,
+      "lane": 3,
+      "duration": 0.0
+    }
+  ]
+}
