@@ -14,7 +14,7 @@ public class TurnManager : MonoBehaviour
 
 
     [Header("Party Shared HP (밴드 공유 체력)")]
-    public float partyMaxHP = 300f;
+    public float partyMaxHP;
     public float partyCurrentHP {get; private set;}
 
     [Header("Party Chorus (밴드 코러스)")]
@@ -25,7 +25,8 @@ public class TurnManager : MonoBehaviour
     public List<BattleUnit> playerParty = new List<BattleUnit>();
     public List<BattleUnit> enemyParty = new List<BattleUnit>();
 
-
+    [Header("Spawn Settings")]
+    public List<Transform> playerSpawnPositions; // ★ 전투 시작 시 아군 4명이 소환될 위치 (빈 오브젝트 4개)
 
 
     [Header("Camera Settings")]
@@ -46,15 +47,66 @@ public class TurnManager : MonoBehaviour
     }
 
     private void Awake()
-    {
-        // 시작할 때 원래 카메라의 위치와 각도를 기억해둡니다.
+    {{
         if (mainCamera != null)
         {
             _originalCamPos = mainCamera.transform.position;
             _originalCamRot = mainCamera.transform.rotation;
         }
-        // 전투 시작 시 밴드 공유 체력 충전
-        partyCurrentHP = partyMaxHP;
+
+        // 1. 전투 씬이 켜지자마자 GameManager에서 멤버를 받아와 소환합니다.
+        SpawnPlayerParty(); 
+
+        // 2. ★ 소환된 캐릭터들의 개별 체력을 합산하여 파티의 총 체력을 동적으로 결정합니다.
+        partyMaxHP = 0f;
+        foreach (var player in playerParty)
+        {
+            if (player != null) 
+            {
+                partyMaxHP += player.maxHP;
+            }
+        }
+
+        // [방어 코드] 만약 캐릭터가 하나도 없거나 체력이 0으로 설정되어 있다면 즉사를 막기 위해 기본값 부여
+        if (partyMaxHP <= 0f) partyMaxHP = 100f;
+
+        partyCurrentHP = partyMaxHP; // 합산된 최대 체력으로 시작 체력 충전
+        Debug.Log($"<color=green>[시스템] 출전 인원: {playerParty.Count}명 / 파티 총 최대 체력: {partyMaxHP}</color>");
+    }
+    }
+
+    private void SpawnPlayerParty()
+    {
+        if (GameManager.Instance == null)
+        {
+            Debug.LogError("씬에 GameManager가 없습니다!");
+            return;
+        }
+
+        var partyPrefabs = GameManager.Instance.selectedPartyPrefabs;
+        playerParty.Clear();
+
+        for (int i = 0; i < partyPrefabs.Count; i++)
+        {
+            if (i >= playerSpawnPositions.Count) 
+            {
+                Debug.LogWarning("소환 위치보다 선택된 캐릭터가 많습니다.");
+                break;
+            }
+
+            GameObject prefab = partyPrefabs[i];
+            Transform spawnPoint = playerSpawnPositions[i];
+
+            // 지정된 위치에 캐릭터 프리팹 생성
+            GameObject spawnedChar = Instantiate(prefab, spawnPoint.position, spawnPoint.rotation);
+            BattleUnit unit = spawnedChar.GetComponent<BattleUnit>();
+
+            if (unit != null)
+            {
+                playerParty.Add(unit);
+            }
+        }
+        Debug.Log($"<color=cyan>[시스템] GameManager로부터 {playerParty.Count}명의 아군을 성공적으로 소환했습니다.</color>");
     }
 
     // --- 카메라와 캐릭터 진형을 동시에 부드럽게 이동 ---
