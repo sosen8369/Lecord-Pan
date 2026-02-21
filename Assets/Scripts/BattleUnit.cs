@@ -3,6 +3,11 @@ using UnityEngine;
 
 public class BattleUnit : MonoBehaviour
 {
+    [Header("Sprite Settings")]
+    public SpriteRenderer spriteRenderer; 
+    public Sprite frontSprite; // 앞모습 이미지
+    public Sprite backSprite;  // 뒷모습 이미지 (당장은 비워둡니다)
+    
     public string unitName;
     public bool isPlayerTeam; // true면 아군, false면 적군
 
@@ -15,7 +20,7 @@ public class BattleUnit : MonoBehaviour
 
     // 캐릭터 사망 시 턴 매니저나 UI 시스템에 즉시 알리기 위한 이벤트
     public event Action<BattleUnit> OnDeath;
-    private void Start() // Awake 말고 Start 사용 권장
+    private void Awake() 
     {
         currentHP = maxHP;
         _originalPosition = transform.position; // 원래 위치 기억
@@ -38,10 +43,6 @@ public class BattleUnit : MonoBehaviour
             if (spotlight != null) spotlight.SetActive(false);
         }
     }
-    private void Awake()
-    {
-        currentHP = maxHP;
-    }
 
     public void TakeDamage(float damage)
     {
@@ -60,5 +61,33 @@ public class BattleUnit : MonoBehaviour
         }
     }
 
+    public void SetBackView(bool isBack)
+    {
+        if (spriteRenderer == null) return;
+
+        if (isBack)
+        {
+            // 1. 뒷모습 리소스가 할당되어 있다면 그걸로 교체
+            if (backSprite != null) 
+            {
+                spriteRenderer.sprite = backSprite;
+            }
+            // 2. 리소스가 없다면 임시로 색상을 어둡게 칠해 뒷모습임을 명시
+            else 
+            {
+                spriteRenderer.color = Color.gray; 
+            }
+        }
+        else
+        {
+            // 앞모습으로 원상 복구
+            if (frontSprite != null) 
+            {
+                spriteRenderer.sprite = frontSprite;
+            }
+            spriteRenderer.color = Color.white;
+        }
+    }
+    
     public bool IsDead => currentHP <= 0;
 }
