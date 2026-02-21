@@ -280,6 +280,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae31fcfbcf1ef6745ab447e4dd413d83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleUnit
+  characterPortrait: {fileID: 21300000, guid: 2da9535ecafbf764bbfd71f2cf9fa3e1, type: 3}
   spriteRenderer: {fileID: 3207121339523845129}
   frontSprite: {fileID: 21300000, guid: 2da9535ecafbf764bbfd71f2cf9fa3e1, type: 3}
   backSprite: {fileID: 21300000, guid: 44f2c692cb2d0494a826dbce88cf0fb2, type: 3}

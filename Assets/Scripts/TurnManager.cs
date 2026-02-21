@@ -60,7 +60,7 @@ public class TurnManager : MonoBehaviour
         // 2. ★ 소환된 캐릭터들의 개별 체력을 합산하여 파티의 총 체력을 동적으로 결정합니다.
         partyMaxHP = 0f;
         foreach (var player in playerParty)
-        {
+        {   
             if (player != null) 
             {
                 partyMaxHP += player.maxHP;
