@@ -12,15 +12,19 @@ public class TurnManager : MonoBehaviour
     [SerializeField] private AttackGameManager attackGameManager;
     [SerializeField] private CommandUIManager _commandUIManager;
 
-    [Header("Attack Settings")]
-    public AttackPatternData defaultAttackPattern; // ★ 공격에 사용할 채보 데이터 연결용
+
+    [Header("Party Shared HP (밴드 공유 체력)")]
+    public float partyMaxHP = 300f;
+    public float partyCurrentHP {get; private set;}
+
+    [Header("Party Chorus (밴드 코러스)")]
+    public int partyMaxChorus = 100;
+    public int partyCurrentChorus = 0;
 
     [Header("Party Management")]
     public List<BattleUnit> playerParty = new List<BattleUnit>();
     public List<BattleUnit> enemyParty = new List<BattleUnit>();
 
-    // 팀원 명세서에 맞춘 강제 종료 신호 토큰 관리 객체
-    private CancellationTokenSource turnCts;
 
 
 
@@ -33,6 +37,8 @@ public class TurnManager : MonoBehaviour
 
     private Vector3 _originalCamPos;
     private Quaternion _originalCamRot;
+    // 팀원 명세서에 맞춘 강제 종료 신호 토큰 관리 객체
+    private CancellationTokenSource turnCts;
 
     private async void Start()
     {
@@ -47,6 +53,8 @@ public class TurnManager : MonoBehaviour
             _originalCamPos = mainCamera.transform.position;
             _originalCamRot = mainCamera.transform.rotation;
         }
+        // 전투 시작 시 밴드 공유 체력 충전
+        partyCurrentHP = partyMaxHP;
     }
 
     // --- 카메라와 캐릭터 진형을 동시에 부드럽게 이동 ---
@@ -138,26 +146,38 @@ public class TurnManager : MonoBehaviour
         {
             if (currentAttacker == null || currentAttacker.IsDead) continue;
 
-            // 1. 턴 시작 연출
             currentAttacker.SetFocus(true);
 
             try
             {
-                // 2. 행동 선택 대기
                 CommandType selectedCommand = await _commandUIManager.WaitForCommandAsync(currentAttacker);
-
-                // 3. 타겟 선택 대기
-                BattleUnit target = await WaitForPlayerTargetSelection(currentAttacker);
-
-                if (target != null)
+                
+                // 1. 코러스(TP) 검사: 스킬(강화공격)을 눌렀는지 확인
+                bool isEnhanced = (selectedCommand == CommandType.Skill);
+                
+                // 코러스가 부족한데 강화 공격을 눌렀다면? (턴을 날리지 않고 일반 공격으로 자동 강등)
+                if (isEnhanced && partyCurrentChorus < currentAttacker.chorusCost)
                 {
-                    // 4. 리듬 게임 실행 및 데미지 적용
-                    await ExecuteAttackTurn(currentAttacker, target, selectedCommand);
+                    Debug.LogWarning($"<color=red>코러스(TP)가 부족합니다! (현재:{partyCurrentChorus} / 필요:{currentAttacker.chorusCost}) 일반 공격으로 대체됩니다.</color>");
+                    isEnhanced = false; 
                 }
+
+                // 2. 공통 타겟팅 (무조건 적을 클릭)
+                BattleUnit target = await WaitForPlayerTargetSelection(currentAttacker);
+                if (target == null) continue;
+
+                // 3. 강화 공격일 경우 코러스 즉시 차감
+                if (isEnhanced)
+                {
+                    partyCurrentChorus -= currentAttacker.chorusCost;
+                    Debug.Log($"코러스 {currentAttacker.chorusCost} 소모. 남은 코러스: {partyCurrentChorus}");
+                }
+
+                // 4. 단일화된 공격 실행 로직 호출
+                await ExecuteAttackTurn(currentAttacker, target, isEnhanced);
             }
             finally
             {
-                // 5. 턴 종료 연출 복구 (에러가 나도 무조건 실행됨)
                 currentAttacker.SetFocus(false);
             }
 
@@ -165,6 +185,61 @@ public class TurnManager : MonoBehaviour
         }
     }
 
+    private async Awaitable ExecuteSkillTurn(BattleUnit attacker)
+    {
+        // 1. 캐릭터의 고유 스킬 즉시 발동
+        attacker.UseSkill();
+        
+        // 2. 스킬 연출을 볼 수 있도록 잠깐 대기
+        await Awaitable.WaitForSecondsAsync(1.0f); 
+    }
+
+    private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, bool isEnhanced)
+    {
+        if (attacker.attackPattern == null)
+        {
+            Debug.LogError($"[{attacker.unitName}]의 패턴이 없습니다!");
+            return;
+        }
+
+        try
+        {
+            // 코러스를 소모한 강화 공격이면 기본 공격력을 1.5배 뻥튀기
+            float attackMultiplier = isEnhanced ? 1.5f : 1.0f;
+            string attackType = isEnhanced ? "<color=magenta>강화 공격(1.5배)</color>" : "일반 공격";
+            
+            Debug.Log($"[시스템] {attacker.unitName}의 {attackType} 시작!");
+
+            // 1. 1패드 리듬 게임 실행
+            RhythmResult result = await attackGameManager.PlayAttackAsync(attacker.attackPattern);
+
+            // 2. ★ 기획자 공식 적용: 아군 공격력 = 공격력 * (100/(100+적방어력)) * (0.6 + 0.9 * 리듬계수)
+            float finalAttackPower = attacker.attackPower * attackMultiplier;
+            float defenseFactor = 100f / (100f + target.defensePower);
+            float rhythmFactor = 0.6f + (0.9f * result.totalAccuracy);
+
+            float finalDamage = finalAttackPower * defenseFactor * rhythmFactor;
+            
+            // 데미지 텍스트 로그 상세 출력
+            Debug.Log($"<color=cyan>[데미지 연산] 타격:{finalAttackPower} * 방어계수:{defenseFactor:F2} * 리듬계수:{rhythmFactor:F2} = 최종 {finalDamage:F1} 데미지!</color>");
+            target.TakeDamage(finalDamage);
+
+            // 3. 코러스(TP) 적립 로직 (일반 공격일 때만)
+            if (!isEnhanced) 
+            {
+                int earnedChorus = Mathf.RoundToInt(result.totalAccuracy * 15f); 
+                partyCurrentChorus += earnedChorus;
+                if (partyCurrentChorus > partyMaxChorus) partyCurrentChorus = partyMaxChorus; 
+                Debug.Log($"<color=yellow>[코러스 획득] +{earnedChorus} / 현재 코러스: {partyCurrentChorus}</color>");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"공격 취소 또는 에러: {e.Message}");
+        }
+        
+        await Awaitable.WaitForSecondsAsync(0.5f);
+    }
     // --- 타겟 클릭 대기 ---
     private async Awaitable<BattleUnit> WaitForPlayerTargetSelection(BattleUnit attacker)
     {
@@ -187,32 +262,51 @@ public class TurnManager : MonoBehaviour
     }
 
     // --- [핵심] 팀원 명세서 기반 공격 로직 ---
-    private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, CommandType command)
+    private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, bool isEnhanced)
     {
-        float skillMultiplier = (command == CommandType.Skill) ? 1.5f : 1.0f;
-        
+        if (attacker.attackPattern == null)
+        {
+            Debug.LogError($"[{attacker.unitName}]의 패턴이 없습니다!");
+            return;
+        }
+
         try
         {
-            Debug.Log("<color=cyan>[시스템] 플레이어 공격! 1패드 리듬 게임 시작</color>");
-
-            // 팀원의 공격 매니저를 비동기로 호출하고 결과 대기
-            // (팀원 코드에 CancellationToken이 아직 없으므로 제외하고 호출합니다)
-            RhythmResult result = await attackGameManager.PlayAttackAsync(defaultAttackPattern);
-
-            Debug.Log($"공격 종료! 최종 정확도: {result.totalAccuracy}");
+            // 코러스를 소모한 강화 공격이면 기본 공격력을 1.5배 뻥튀기
+            float attackMultiplier = isEnhanced ? 1.5f : 1.0f;
+            string attackType = isEnhanced ? "<color=magenta>강화 공격(1.5배)</color>" : "일반 공격";
             
-            // 데미지 계산 및 적용
-            float baseDamage = 20f * skillMultiplier;
-            float finalDamage = baseDamage * result.totalAccuracy;
+            Debug.Log($"[시스템] {attacker.unitName}의 {attackType} 시작!");
+
+            // 1. 1패드 리듬 게임 실행
+            RhythmResult result = await attackGameManager.PlayAttackAsync(attacker.attackPattern);
+
+            // 2. ★ 기획자 공식 적용: 아군 공격력 = 공격력 * (100/(100+적방어력)) * (0.6 + 0.9 * 리듬계수)
+            float finalAttackPower = attacker.attackPower * attackMultiplier;
+            float defenseFactor = 100f / (100f + target.defensePower);
+            float rhythmFactor = 0.6f + (0.9f * result.totalAccuracy);
+
+            float finalDamage = finalAttackPower * defenseFactor * rhythmFactor;
+            
+            // 데미지 텍스트 로그 상세 출력
+            Debug.Log($"<color=cyan>[데미지 연산] 타격:{finalAttackPower} * 방어계수:{defenseFactor:F2} * 리듬계수:{rhythmFactor:F2} = 최종 {finalDamage:F1} 데미지!</color>");
             target.TakeDamage(finalDamage);
+
+            // 3. 코러스(TP) 적립 로직 (일반 공격일 때만)
+            if (!isEnhanced) 
+            {
+                int earnedChorus = Mathf.RoundToInt(result.totalAccuracy * 15f); 
+                partyCurrentChorus += earnedChorus;
+                if (partyCurrentChorus > partyMaxChorus) partyCurrentChorus = partyMaxChorus; 
+                Debug.Log($"<color=yellow>[코러스 획득] +{earnedChorus} / 현재 코러스: {partyCurrentChorus}</color>");
+            }
         }
         catch (Exception e)
         {
-            // 팀원의 시스템에서 에러가 나거나 비정상 종료될 경우를 방어
-            Debug.LogWarning($"공격 리듬 게임 중 오류 또는 취소 발생: {e.Message}");
+            Debug.LogWarning($"공격 취소 또는 에러: {e.Message}");
         }
         
-        await Awaitable.WaitForSecondsAsync(0.5f); // 턴 전환 전 짧은 연출 대기
+        await Awaitable.WaitForSecondsAsync(0.5f);
     }
 
     // --- 적군 페이즈 ---
@@ -223,8 +317,8 @@ public class TurnManager : MonoBehaviour
         {
             if (currentEnemy == null || currentEnemy.IsDead) continue;
 
-            // 적은 살아있는 첫 번째 플레이어를 자동 타겟팅
-            BattleUnit targetPlayer = playerParty.FirstOrDefault(u => u != null && !u.IsDead);
+            // 아군은 개별로 죽지 않으므로, 그냥 첫 번째 자리에 있는 캐릭터를 타겟으로 잡고 방어(4패드)를 시작합니다.
+            BattleUnit targetPlayer = playerParty.FirstOrDefault(u => u != null);
             if (targetPlayer != null)
             {
                 await ExecuteEnemyTurn(currentEnemy, targetPlayer);
@@ -234,35 +328,37 @@ public class TurnManager : MonoBehaviour
         }
     }
 
-    // --- 적군 방어 리듬 게임 로직 ---
+    // --- 적군 방어 리듬 게임 로직 (공유 체력 적용) ---
     private async Awaitable ExecuteEnemyTurn(BattleUnit attacker, BattleUnit target)
     {
-        string chartId = "Test Battle Track";
+        string chartId = "Test Battle Track"; 
         turnCts = new CancellationTokenSource();
 
         try
         {
-            Debug.Log("<color=red>[시스템] 적 공격! 방어 시점으로 카메라 이동!</color>");
-
-            // ★ 아군 전체를 뒷모습으로 전환 명령
+            Debug.Log("<color=red>[시스템] 적 공격! 방어 시점으로 이동!</color>");
+            
             foreach (var player in playerParty)
             {
-                if (player != null && !player.IsDead) player.SetBackView(true);
+                if (player != null) player.SetBackView(true); 
             }
 
-            // 방어용 카메라 앵글로 부드럽게 이동
-            if (defenseCameraView != null)
-            {
-                await MoveCameraAndFormationAsync(defenseCameraView, false, 0.5f);
-            }
+            await MoveCameraAndFormationAsync(defenseCameraView, false, 0.5f);
 
-            // 4패드 리듬 게임 실행
             RhythmResult result = await rhythmManager.PlayRhythmGameAsync(chartId, false, turnCts.Token);
+            
+            // ★ 기획자 공식 적용: 적 공격력 = 공격력 * (100/(100+아군방어력)) * (1.4 - 0.8 * 리듬계수)
+            float baseAttack = attacker.attackPower;
+            float defenseFactor = 100f / (100f + target.defensePower); // 타겟팅된 아군의 개별 방어력 적용
+            float rhythmFactor = 1.4f - (0.8f * result.totalAccuracy);
 
-            float baseDamage = 30f;
-            float damageTaken = baseDamage * (1f - result.totalAccuracy);
+            float damageTaken = baseAttack * defenseFactor * rhythmFactor;
 
-            target.TakeDamage(damageTaken);
+            // 최종 데미지는 파티 공유 체력에서 차감
+            partyCurrentHP -= damageTaken;
+            Debug.Log($"<color=orange>[방어 연산] 적 타격:{baseAttack} * 아군 방어계수:{defenseFactor:F2} * 리듬계수:{rhythmFactor:F2} = 최종 {damageTaken:F1} 피해!</color>");
+            Debug.Log($"<color=orange>남은 파티 체력: {partyCurrentHP:F1} / {partyMaxHP}</color>");
+            
         }
         catch (OperationCanceledException)
         {
@@ -273,20 +369,17 @@ public class TurnManager : MonoBehaviour
             turnCts?.Dispose();
             turnCts = null;
 
-            // 원래 시점으로 카메라 복귀
-            Debug.Log("<color=cyan>[시스템] 원래 시점과 진형으로 카메라 복귀</color>");
+            Debug.Log("<color=cyan>[시스템] 원래 시점과 원래 진형으로 복귀</color>");
             await MoveCameraAndFormationAsync(null, true, 0.5f);
 
-            // ★ 카메라가 돌아왔으므로 아군 전체를 다시 앞모습으로 전환 명령
             foreach (var player in playerParty)
             {
-                if (player != null && !player.IsDead) player.SetBackView(false);
+                if (player != null) player.SetBackView(false);
             }
         }
 
         await Awaitable.WaitForSecondsAsync(0.5f);
     }
-
     /// <summary>
     /// 외부 시스템에서 턴을 강제로 끝낼 때 호출하는 함수
     /// </summary>
@@ -298,13 +391,19 @@ public class TurnManager : MonoBehaviour
         }
     }
 
+
+    // --- 승패 조건 체크 (공유 체력 기반으로 변경) ---
     private bool CheckBattleEndCondition()
     {
-        if (playerParty.All(u => u == null || u.IsDead))
+        // 아군은 개별 IsDead가 아니라 공유 체력이 0 이하인지로 패배를 판정합니다.
+        if (partyCurrentHP <= 0)
         {
-            Debug.Log("=== 패배: 아군 전멸 ===");
+            partyCurrentHP = 0;
+            Debug.Log("=== 패배: 밴드의 연주력(체력)이 모두 소진되었습니다! (마에스트로 쓰러짐) ===");
             return true;
         }
+        
+        // 적군은 여전히 개별 체력(IsDead)을 기준으로 전멸 여부를 판정합니다.
         if (enemyParty.All(u => u == null || u.IsDead))
         {
             Debug.Log("=== 승리: 적군 전멸 ===");

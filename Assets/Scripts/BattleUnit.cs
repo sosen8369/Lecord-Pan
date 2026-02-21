@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class BattleUnit : MonoBehaviour
 {
+
+
     [Header("Sprite Settings")]
     public SpriteRenderer spriteRenderer; 
     public Sprite frontSprite; // 앞모습 이미지
@@ -14,9 +16,21 @@ public class BattleUnit : MonoBehaviour
     public float maxHP = 100f;
     public float currentHP;
 
+    public float attackPower = 80f; 
+    public float defensePower = 40f;
+
+    [Header("Attack Settings(고유 공격 패턴)")]
+    public AttackPatternData attackPattern;
+  
+    
+    [Header("Chrous Attack Settings")]
+    public int chorusCost = 30; // 스킬 사용 시 소모되는 코러스(TP) 양
+
     [Header("연출(Focus) 설정")]
     public GameObject spotlight; // 캐릭터 자식으로 있는 스포트라이트 오브젝트 연결
     public Vector3 originalPosition{get; private set;}
+
+
 
     // 캐릭터 사망 시 턴 매니저나 UI 시스템에 즉시 알리기 위한 이벤트
     public event Action<BattleUnit> OnDeath;
@@ -87,6 +101,12 @@ public class BattleUnit : MonoBehaviour
             }
             spriteRenderer.color = Color.white;
         }
+    }
+
+    public virtual void UseSkill()
+    {
+        Debug.Log($"<color=magenta>[{unitName}]의 고유 스킬 발동!</color>");
+        // TODO: 기획에 따라 파티 체력 회복, 방어력 증가 등의 효과를 여기에 작성합니다.
     }
 
     public bool IsDead => currentHP <= 0;
