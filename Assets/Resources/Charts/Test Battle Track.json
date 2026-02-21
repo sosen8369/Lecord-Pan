@@ -32,12 +32,6 @@
       "duration": 0.0
     },
     {
-      "type": 1,
-      "timeMs": 3000.0,
-      "lane": 2,
-      "duration": 1000.0
-    },
-    {
       "type": 0,
       "timeMs": 4500.0,
       "lane": 3,

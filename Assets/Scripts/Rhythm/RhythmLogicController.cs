@@ -95,6 +95,15 @@ public class RhythmLogicController : MonoBehaviour
 
     public void InitializeGameData(string chartID, bool isAttackTurn)
     {
+        // 풀 매니저가 할당되어 있는지 먼저 확인
+        if (poolManager == null)
+        {
+            Debug.LogError("Pool Manager가 할당되지 않았습니다!");
+            return;
+        }
+
+        // 게임 시작 전 풀을 초기화하여 딕셔너리와 초기 객체들을 생성합니다.
+        poolManager.Initialize();
         TextAsset jsonTextAsset = Resources.Load<TextAsset>($"Charts/{chartID}");
         if (jsonTextAsset == null)
         {
@@ -243,7 +252,9 @@ public class RhythmLogicController : MonoBehaviour
         noteComponent.Setup(note);
         laneNoteQueues[note.lane].Enqueue(noteComponent);
         
-        // 수정된 부분: GameObject 대신 Note 컴포넌트를 리스트에 추가합니다.
+        // 추가된 부분: 풀러에서 꺼낸 객체의 스케일을 원래 사이즈로 초기화합니다.
+        noteComponent.Rect.localScale = Vector3.one;
+        
         activeNotes.Add(noteComponent);
     }
 
@@ -253,8 +264,6 @@ public class RhythmLogicController : MonoBehaviour
         {
             Note note = activeNotes[i];
             
-            // 1. 리스트 동기화 및 풀 반환
-            // JudgmentManager에 의해 판정 처리되어 비활성화된 노트를 일괄 정리합니다.
             if (!note.gameObject.activeSelf)
             {
                 activeNotes.RemoveAt(i);
@@ -262,25 +271,28 @@ public class RhythmLogicController : MonoBehaviour
                 continue;
             }
             
-            // 2. 문자열 파싱(Split) 제거 및 정규화된 데이터 직접 참조
             float timeDiff = note.Data.timeMs - currentMs;
             
-            // Note 컴포넌트에 캐싱된 RectTransform(Rect)을 바로 사용합니다.
-            float yPos = (timeDiff / 1000f) * (judgmentLine.anchoredPosition.y / noteLeadTimeSec);
-            note.Rect.anchoredPosition = new Vector2(0, yPos + judgmentLine.anchoredPosition.y);
+            // 수정된 이동 공식: 시작점(Lane)과 도착점(Judgment Line) 사이의 절대 위치 계산
+            float t = timeDiff / (noteLeadTimeSec * 1000f);
+            Vector3 judgePos = judgmentLine.position;
+            Vector3 spawnPos = laneParents[note.Data.lane].position;
+            
+            // LerpUnclamped를 사용하여 노트가 판정선을 지나쳐도(t < 0) 계속 이동하도록 처리합니다.
+            Vector3 targetPos = Vector3.LerpUnclamped(judgePos, spawnPos, t);
+            
+            // X축은 레인의 위치로 고정하고, Y축은 계산된 하강 위치를 적용합니다.
+            note.Rect.position = new Vector3(spawnPos.x, targetPos.y, spawnPos.z);
 
-            // 3. 안전장치: 판정 처리 없이 화면을 아득히 벗어난 오류 노트 정리
             if (timeDiff < -judgmentManager.MissThresholdMs - 200f)
-            {   
+            {
                 activeNotes.RemoveAt(i);
                 
-                // 큐에 남아있다면 함께 정리하여 진행 불가(Block) 현상을 방지합니다.
                 if (laneNoteQueues[note.Data.lane].Count > 0 && laneNoteQueues[note.Data.lane].Peek() == note)
                 {
                     laneNoteQueues[note.Data.lane].Dequeue();
                 }
                 
-                // Destroy를 피하고 풀러에 반환합니다.
                 poolManager.ReturnToPool(note.Data.type, note.gameObject);
             }
         }

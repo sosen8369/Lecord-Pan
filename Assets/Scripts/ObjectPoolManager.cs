@@ -49,10 +49,17 @@ public class ObjectPoolManager : MonoBehaviour
 
     public GameObject GetFromPool(int type, Transform parent)
     {
-        if (!pools.ContainsKey(type)) return null;
+        if (pools == null || !pools.ContainsKey(type)) 
+        {
+            Debug.LogError($"타입 {type}에 해당하는 풀이 초기화되지 않았습니다.");
+            return null;
+        }
 
         GameObject obj = pools[type].Get();
-        obj.transform.SetParent(parent);
+        if (obj != null)
+        {
+            obj.transform.SetParent(parent);
+        }
         return obj;
     }
 
