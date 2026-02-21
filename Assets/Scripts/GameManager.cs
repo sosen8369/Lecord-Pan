@@ -11,6 +11,9 @@ public class GameManager : MonoBehaviour
     [Header("Selected Party (전투에 나갈 4명)")]
     public List<GameObject> selectedPartyPrefabs = new List<GameObject>();
 
+    [Header("Encountered Enemy (전투에 등장할 적군)")]
+    public List<GameObject> encounteredEnemyPrefabs = new List<GameObject>();
+
     private void Awake()
     {
         // 씬이 넘어가도 파괴되지 않도록 락을 겁니다.
