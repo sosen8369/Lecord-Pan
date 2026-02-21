@@ -3,34 +3,45 @@ using System.Threading.Tasks;
 using System;
 
 public class AttackGameManager : MonoBehaviour
-{
+{[Header("Dependencies")]
     [SerializeField] private AttackRhythmController attackController;
+    
+    [Header("UI Settings")]
+    public GameObject attackPanel; // ★ 1패드 리듬 게임 캔버스(또는 패널) 연결용
 
-    // 비동기 작업의 완료 상태와 결과값을 관리하는 객체입니다.
     private TaskCompletionSource<RhythmResult> completionSource;
+
+    private void Awake()
+    {
+        // 1. 게임 시작 시, 클릭 방해를 막기 위해 1패드 패널을 강제로 꺼둡니다.
+        if (attackPanel != null) 
+        {
+            attackPanel.SetActive(false);
+        }
+    }
 
     /// <summary>
     /// 턴 매니저가 공격을 시작할 때 호출하는 함수입니다.
     /// </summary>
     public Task<RhythmResult> PlayAttackAsync(AttackPatternData patternData)
     {
-        // 새로운 작업 완료 신호기를 생성합니다.
-        completionSource = new TaskCompletionSource<RhythmResult>();
+        // 2. ★ 리듬 게임 시작: 화면에 패널을 띄웁니다.
+        if (attackPanel != null) attackPanel.SetActive(true);
 
-        // 공격 종료 이벤트를 구독하고 컨트롤러를 실행합니다.
+        completionSource = new TaskCompletionSource<RhythmResult>();
         attackController.OnAttackFinished += HandleAttackFinished;
         attackController.StartAttack(patternData);
 
-        // 턴 매니저에게 작업 상태(Task)를 반환하여 대기하게 만듭니다.
         return completionSource.Task;
     }
 
     private void HandleAttackFinished(RhythmResult result)
     {
-        // 이벤트 구독을 해제하여 메모리 누수를 막습니다.
         attackController.OnAttackFinished -= HandleAttackFinished;
 
-        // 대기 중이던 턴 매니저에게 결과값을 전달하며 대기를 해제합니다.
+        // 3. ★ 리듬 게임 종료: 다음 턴의 버튼 클릭을 위해 패널을 즉시 숨깁니다.
+        if (attackPanel != null) attackPanel.SetActive(false);
+
         completionSource.SetResult(result);
     }
 }
