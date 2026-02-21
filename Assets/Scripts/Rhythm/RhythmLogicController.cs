@@ -25,7 +25,7 @@ public class RhythmLogicController : MonoBehaviour
     [SerializeField] private RectTransform judgmentLine; // 판정선 위치 (Y 좌표 기준점)
 
     private int nextSpawnIndex = 0; // 다음 생성할 노트의 배열 인덱스
-    private List<GameObject> activeNotes = new List<GameObject>(); // 현재 화면에 떠 있는 노트들
+    private List<Note> activeNotes = new List<Note>();
     private Queue<Note>[] laneNoteQueues = new Queue<Note>[4];
     
     private bool isPlaying = false; // 메인 루프 가동 여부
@@ -95,23 +95,16 @@ public class RhythmLogicController : MonoBehaviour
 
     public void InitializeGameData(string chartID, bool isAttackTurn)
     {
-        // 1. Resources 폴더 내의 지정된 경로에서 JSON 텍스트 에셋을 로드합니다.
-        // 실제 프로젝트 구조에 따라 Addressables나 File.ReadAllText 방식으로 변경할 수 있습니다.
         TextAsset jsonTextAsset = Resources.Load<TextAsset>($"Charts/{chartID}");
-        
         if (jsonTextAsset == null)
         {
             Debug.LogError($"채보 파일을 찾을 수 없습니다: Charts/{chartID}");
             return;
         }
 
-        // 2. JSON 문자열을 RhythmGameChart 객체로 변환합니다.
         currentChart = JsonUtility.FromJson<RhythmGameChart>(jsonTextAsset.text);
-
-        // 3. 곡 시작 여백 시간을 변수에 할당합니다.
         audioOffsetMs = currentChart.audioOffsetMs;
 
-        // 4. 최종 정확도(RhythmResult.totalAccuracy) 계산을 위해 전체 노트 개수를 캐싱합니다.
         if (currentChart.notes != null)
         {
             totalNotesCount = currentChart.notes.Length;
@@ -121,8 +114,8 @@ public class RhythmLogicController : MonoBehaviour
             totalNotesCount = 0;
         }
 
-        // isAttackTurn(공격/방어 상태)에 따라 UI 색상 변경이나 배율 조정 로직이 필요하다면
-        // 이 위치에 작성하여 변수에 저장합니다.
+        // 추가된 부분: 판정 매니저 내부 데이터 초기화
+        judgmentManager.Initialize();
     }
 
     public void StartRhythmLoop()
@@ -189,14 +182,28 @@ public class RhythmLogicController : MonoBehaviour
         }
     }
 
+    private void CheckGameEnd()
+    {
+        // 채보의 모든 노트가 스폰되었고, 화면에 남은 노트가 없으며, 메인 오디오 재생이 끝났을 때
+        if (nextSpawnIndex >= currentChart.notes.Length && 
+            activeNotes.Count == 0 && 
+            audioSources.Length > 0 && 
+            !audioSources[0].isPlaying)
+        {
+            isPlaying = false;
+            
+            // 턴 매니저에게 전달할 최종 결과 산출 및 이벤트 호출
+            RhythmResult finalResult = judgmentManager.GetFinalResult(totalNotesCount);
+            OnGameFinished?.Invoke(finalResult);
+        }
+    }
+
     private void Update()
     {
         if (!isPlaying || isPaused) return;
 
         float currentMs = CurrentMusicTimeMs;
 
-        // 1. 노트 스폰 검사 (Spawn Check)
-        // 현재 시간 + 리드 타임이 노트의 목표 시간보다 크면 스폰합니다.
         while (nextSpawnIndex < currentChart.notes.Length && 
                currentMs + (noteLeadTimeSec * 1000f) >= currentChart.notes[nextSpawnIndex].timeMs)
         {
@@ -204,9 +211,11 @@ public class RhythmLogicController : MonoBehaviour
             nextSpawnIndex++;
         }
 
-        // 2. 노트 위치 갱신 (Movement Update)
         UpdateNotePositions(currentMs);
         CheckMissNotes(currentMs);
+        
+        // 추가된 부분: 매 프레임 게임 종료 조건 검사
+        CheckGameEnd();
     }
 
     private void CheckMissNotes(float currentMs)
@@ -215,18 +224,12 @@ public class RhythmLogicController : MonoBehaviour
         {
             if (laneNoteQueues[i].Count > 0)
             {
-                // 큐의 맨 앞 노트를 확인합니다.
                 Note frontNote = laneNoteQueues[i].Peek();
                 
-                // 판정 허용 최대 시간(예: 200ms)을 넘어서면 Miss로 간주합니다.
-                // 이 값은 JudgmentData에서 가져오거나 상수로 지정합니다.
-                if (currentMs - frontNote.Data.timeMs > 200f) 
+                if (currentMs - frontNote.Data.timeMs > judgmentManager.MissThresholdMs) 
                 {
-                    // JudgmentManager에 Miss 판정을 강제로 발생시킵니다.
                     judgmentManager.ProcessMiss(laneNoteQueues[i]);
-                    
-                    // 리스트에서도 제거 (시각적 제거는 UpdateNotePositions 등에서 처리)
-                    activeNotes.Remove(frontNote.gameObject);
+                    // 기존에 있던 activeNotes.Remove(frontNote.gameObject); 구문을 삭제합니다.
                 }
             }
         }
@@ -239,33 +242,46 @@ public class RhythmLogicController : MonoBehaviour
         
         noteComponent.Setup(note);
         laneNoteQueues[note.lane].Enqueue(noteComponent);
-        activeNotes.Add(noteObj);
+        
+        // 수정된 부분: GameObject 대신 Note 컴포넌트를 리스트에 추가합니다.
+        activeNotes.Add(noteComponent);
     }
 
     private void UpdateNotePositions(float currentMs)
     {
         for (int i = activeNotes.Count - 1; i >= 0; i--)
         {
-            GameObject noteObj = activeNotes[i];
-            // 예시로 이름에 저장된 타겟 시간을 파싱하여 사용 (실제로는 클래스로 관리)
-            float targetTimeMs = float.Parse(noteObj.name.Split('_')[1]);
+            Note note = activeNotes[i];
             
-            // 판정선과의 시간 차이 계산
-            float timeDiff = targetTimeMs - currentMs;
-
-            // 시간 차에 따른 Y축 위치 계산 (단순 선형 이동)
-            // 배속 이벤트(SpeedEvent)는 나중에 이 공식에 multiplier를 곱해 적용합니다.
-            float yPos = (timeDiff / 1000f) * (judgmentLine.anchoredPosition.y / noteLeadTimeSec);
-            
-            // 판정선 위치를 기준으로 오프셋 이동
-            RectTransform rt = noteObj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(0, yPos + judgmentLine.anchoredPosition.y);
-
-            // 판정선을 지나쳐서 화면 밖으로 완전히 나간 경우 (예: -200ms) 일단 삭제
-            if (timeDiff < -200f)
+            // 1. 리스트 동기화 및 풀 반환
+            // JudgmentManager에 의해 판정 처리되어 비활성화된 노트를 일괄 정리합니다.
+            if (!note.gameObject.activeSelf)
             {
                 activeNotes.RemoveAt(i);
-                Destroy(noteObj);
+                poolManager.ReturnToPool(note.Data.type, note.gameObject);
+                continue;
+            }
+            
+            // 2. 문자열 파싱(Split) 제거 및 정규화된 데이터 직접 참조
+            float timeDiff = note.Data.timeMs - currentMs;
+            
+            // Note 컴포넌트에 캐싱된 RectTransform(Rect)을 바로 사용합니다.
+            float yPos = (timeDiff / 1000f) * (judgmentLine.anchoredPosition.y / noteLeadTimeSec);
+            note.Rect.anchoredPosition = new Vector2(0, yPos + judgmentLine.anchoredPosition.y);
+
+            // 3. 안전장치: 판정 처리 없이 화면을 아득히 벗어난 오류 노트 정리
+            if (timeDiff < -judgmentManager.MissThresholdMs - 200f)
+            {
+                activeNotes.RemoveAt(i);
+                
+                // 큐에 남아있다면 함께 정리하여 진행 불가(Block) 현상을 방지합니다.
+                if (laneNoteQueues[note.Data.lane].Count > 0 && laneNoteQueues[note.Data.lane].Peek() == note)
+                {
+                    laneNoteQueues[note.Data.lane].Dequeue();
+                }
+                
+                // Destroy를 피하고 풀러에 반환합니다.
+                poolManager.ReturnToPool(note.Data.type, note.gameObject);
             }
         }
     }

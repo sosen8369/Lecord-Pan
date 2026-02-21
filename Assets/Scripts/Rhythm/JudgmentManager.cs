@@ -8,6 +8,7 @@ public class JudgmentManager : MonoBehaviour
     // 등급이 높은 순서(범위가 좁은 순서)대로 인스펙터에서 배치하십시오.
     [SerializeField] private JudgeInfo[] judgeSettings;
     [SerializeField] private JudgeInfo missJudgeInfo = new JudgeInfo { name = "Miss", thresholdMs = 200f, accuracyWeight = 0f };
+    public float MissThresholdMs => missJudgeInfo.thresholdMs;
 
     // 실시간 판정 결과 이벤트 (UI 연출용)
     public event Action<string, int, Color> OnJudgeGenerated;
