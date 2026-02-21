@@ -828,7 +828,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AttackTestRunner
   attackController: {fileID: 1961504709}
-  testPattern: {fileID: 11400000, guid: ed11378f8f96e2d41add9452ddd1df9c, type: 2}
+  testPattern: {fileID: 11400000, guid: ef6b72fe8c9fbde4c9e1c5d08339e427, type: 2}
 --- !u!114 &1961504707
 MonoBehaviour:
   m_ObjectHideFlags: 0

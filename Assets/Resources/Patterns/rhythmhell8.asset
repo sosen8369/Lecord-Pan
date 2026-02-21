@@ -14,4 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AttackPatternData
   patternName: rhythmhell8
   startMarginMs: 2000
-  relativeTimingsMs: []
+  relativeTimingsMs:
+  - 200
+  - 600
+  - 1166.67
+  - 1500
+  - 1833.33

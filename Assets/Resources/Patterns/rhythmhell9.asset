@@ -12,6 +12,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99971c3d83eb1754a9869a9d5e28d27b, type: 3}
   m_Name: rhythmhell9
   m_EditorClassIdentifier: Assembly-CSharp::AttackPatternData
-  patternName: 
-  startMarginMs: 0
-  relativeTimingsMs: []
+  patternName: rhythmhell9
+  startMarginMs: 2000
+  relativeTimingsMs:
+  - 0
+  - 125
+  - 250
+  - 375
+  - 500
+  - 625
+  - 750
+  - 875
+  - 937.5
+  - 1000
+  - 1125
+  - 1250
+  - 1375
+  - 1500
+  - 1625
+  - 1750
+  - 1875
+  - 1937.5
