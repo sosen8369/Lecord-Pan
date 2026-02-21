@@ -258,7 +258,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae31fcfbcf1ef6745ab447e4dd413d83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleUnit
-  unitName: Player
+  unitName: Player01
   isPlayerTeam: 1
   maxHP: 100
   currentHP: 100

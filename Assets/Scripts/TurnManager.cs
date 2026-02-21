@@ -43,11 +43,11 @@ public class TurnManager : MonoBehaviour
     private async Awaitable PlayerPhase()
     {
         Debug.Log("\n[플레이어 페이즈 시작]");
-        
+
         for (int i = 0; i < playerParty.Count; i++)
         {
             BattleUnit currentAttacker = playerParty[i];
-            
+
             // 죽은 캐릭터나 빈자리는 건너뜀
             if (currentAttacker == null || currentAttacker.IsDead) continue;
 
@@ -60,7 +60,7 @@ public class TurnManager : MonoBehaviour
             {
                 await ExecutePlayerAttack(currentAttacker, target);
             }
-            
+
             if (CheckBattleEndCondition()) return;
         }
     }
@@ -73,12 +73,12 @@ public class TurnManager : MonoBehaviour
         for (int i = 0; i < enemyParty.Count; i++)
         {
             BattleUnit currentEnemy = enemyParty[i];
-            
+
             if (currentEnemy == null || currentEnemy.IsDead) continue;
 
             // 적의 타겟팅 AI (단순히 살아있는 첫 번째 아군을 타겟으로 잡음)
             BattleUnit targetPlayer = playerParty.FirstOrDefault(u => u != null && !u.IsDead);
-            
+
             if (targetPlayer != null)
             {
                 await ExecuteEnemyAttack(currentEnemy, targetPlayer);
@@ -91,7 +91,7 @@ public class TurnManager : MonoBehaviour
     // --- 타겟팅 대기 로직 (비동기) ---
     private async Awaitable<BattleUnit> WaitForPlayerTargetSelection(BattleUnit attacker)
     {
-Debug.Log($"<color=green>▶ {attacker.unitName}의 턴!</color> 공격할 타겟(적)을 마우스로 클릭하세요...");
+        Debug.Log($"<color=green>▶ {attacker.unitName}의 턴!</color> 공격할 타겟(적)을 마우스로 클릭하세요...");
 
         // 비동기 대기를 위한 객체 생성
         var completionSource = new AwaitableCompletionSource<BattleUnit>();
@@ -122,7 +122,7 @@ Debug.Log($"<color=green>▶ {attacker.unitName}의 턴!</color> 공격할 타�
     // --- 실제 리듬 게임 및 데미지 실행 ---
     private async Awaitable ExecutePlayerAttack(BattleUnit attacker, BattleUnit target)
     {
-        string chartId = "Player_Attack_01"; 
+        string chartId = "Player_Attack_01";
         _currentTurnCTS = new CancellationTokenSource();
 
         try
@@ -158,7 +158,7 @@ Debug.Log($"<color=green>▶ {attacker.unitName}의 턴!</color> 공격할 타�
 
             float baseDamage = 30f;
             float damageTaken = baseDamage * (1f - result.totalAccuracy);
-            
+
             target.TakeDamage(damageTaken);
         }
         catch (OperationCanceledException)
