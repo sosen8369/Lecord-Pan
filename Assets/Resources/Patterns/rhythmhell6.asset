@@ -10,12 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 99971c3d83eb1754a9869a9d5e28d27b, type: 3}
-  m_Name: 4-4
+  m_Name: rhythmhell6
   m_EditorClassIdentifier: Assembly-CSharp::AttackPatternData
-  patternName: 
+  patternName: rhythmhell6
   startMarginMs: 2000
   relativeTimingsMs:
-  - 0
-  - 500
+  - 250
+  - 750
+  - 875
   - 1000
-  - 1500
+  - 1200
+  - 1400
+  - 1600
+  - 1800
