@@ -9,6 +9,9 @@ public class RhythmLogicController : MonoBehaviour
     public event Action<RhythmResult> OnGameFinished;
     private RhythmGameChart currentChart;
     private int totalNotesCount;
+    [Header("Managers")]
+    [SerializeField] private JudgmentManager judgmentManager; // 에러 해결을 위한 선언
+    [SerializeField] private ObjectPoolManager poolManager;   // 에러 해결을 위한 선언
 
     [Header("Audio")]
     [SerializeField] private AudioSource[] audioSources; // 재생 중인 다중 트랙 오디오
@@ -163,6 +166,29 @@ public class RhythmLogicController : MonoBehaviour
         // 강제 종료 시 누적 점수 및 데이터 초기화 로직 대기 위치
     }
 
+    private void Awake()
+    {
+        // 4개의 레인 큐 초기화
+        for (int i = 0; i < 4; i++)
+        {
+            laneNoteQueues[i] = new Queue<Note>();
+        }
+    }
+
+    public void OnInput(int lane)
+    {
+        // 게임 중이 아니거나 일시정지 상태면 입력을 무시합니다.
+        if (!isPlaying || isPaused) return;
+
+        // 해당 레인의 큐에 판정할 노트가 있는지 확인합니다.
+        if (laneNoteQueues[lane].Count > 0)
+        {
+            // JudgmentManager에게 판정 로직을 위임합니다.
+            // 현재 재생 시간(CurrentMusicTimeMs)과 해당 레인의 큐를 전달합니다.
+            judgmentManager.ProcessJudgment(lane, CurrentMusicTimeMs, laneNoteQueues[lane]);
+        }
+    }
+
     private void Update()
     {
         if (!isPlaying || isPaused) return;
@@ -180,18 +206,40 @@ public class RhythmLogicController : MonoBehaviour
 
         // 2. 노트 위치 갱신 (Movement Update)
         UpdateNotePositions(currentMs);
+        CheckMissNotes(currentMs);
+    }
+
+    private void CheckMissNotes(float currentMs)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            if (laneNoteQueues[i].Count > 0)
+            {
+                // 큐의 맨 앞 노트를 확인합니다.
+                Note frontNote = laneNoteQueues[i].Peek();
+                
+                // 판정 허용 최대 시간(예: 200ms)을 넘어서면 Miss로 간주합니다.
+                // 이 값은 JudgmentData에서 가져오거나 상수로 지정합니다.
+                if (currentMs - frontNote.Data.timeMs > 200f) 
+                {
+                    // JudgmentManager에 Miss 판정을 강제로 발생시킵니다.
+                    judgmentManager.ProcessMiss(laneNoteQueues[i]);
+                    
+                    // 리스트에서도 제거 (시각적 제거는 UpdateNotePositions 등에서 처리)
+                    activeNotes.Remove(frontNote.gameObject);
+                }
+            }
+        }
     }
 
     private void SpawnNote(NoteData note)
     {
-        // 원래는 오브젝트 풀러를 사용해야 하지만, 지금은 테스트를 위해 Instantiate를 사용합니다.
-        GameObject noteObj = Instantiate(tapNotePrefab, laneParents[note.lane]);
+        GameObject noteObj = poolManager.GetFromPool(note.type, laneParents[note.lane]);
+        Note noteComponent = noteObj.GetComponent<Note>();
         
-        // 노트 객체에 자신의 데이터를 저장하거나 초기화하는 로직 (나중에 확장)
+        noteComponent.Setup(note);
+        laneNoteQueues[note.lane].Enqueue(noteComponent);
         activeNotes.Add(noteObj);
-        
-        // 테스트용: 노트 객체의 이름을 타겟 시간으로 설정하여 구분
-        noteObj.name = $"Note_{note.timeMs}";
     }
 
     private void UpdateNotePositions(float currentMs)
