@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: 88-84-4-
   m_EditorClassIdentifier: Assembly-CSharp::AttackPatternData
   patternName: 88-84-4-
-  startMarginMs: 0
+  startMarginMs: 2000
   relativeTimingsMs:
   - 0
   - 250
