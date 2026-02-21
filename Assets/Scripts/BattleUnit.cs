@@ -3,38 +3,39 @@ using UnityEngine;
 
 public class BattleUnit : MonoBehaviour
 {
-
+    [Header("UI Info (로비 표시용)")]
+    public Sprite characterPortrait;
 
     [Header("Sprite Settings")]
-    public SpriteRenderer spriteRenderer; 
+    public SpriteRenderer spriteRenderer;
     public Sprite frontSprite; // 앞모습 이미지
     public Sprite backSprite;  // 뒷모습 이미지 (당장은 비워둡니다)
-    
+
     public string unitName;
     public bool isPlayerTeam; // true면 아군, false면 적군
 
     public float maxHP = 100f;
     public float currentHP;
 
-    public float attackPower = 80f; 
+    public float attackPower = 80f;
     public float defensePower = 40f;
 
     [Header("Attack Settings(고유 공격 패턴)")]
     public AttackPatternData attackPattern;
-  
-    
+
+
     [Header("Chrous Attack Settings")]
     public int chorusCost = 30; // 스킬 사용 시 소모되는 코러스(TP) 양
 
     [Header("연출(Focus) 설정")]
     public GameObject spotlight; // 캐릭터 자식으로 있는 스포트라이트 오브젝트 연결
-    public Vector3 originalPosition{get; private set;}
+    public Vector3 originalPosition { get; private set; }
 
 
 
     // 캐릭터 사망 시 턴 매니저나 UI 시스템에 즉시 알리기 위한 이벤트
     public event Action<BattleUnit> OnDeath;
-    private void Awake() 
+    private void Awake()
     {
         currentHP = maxHP;
         originalPosition = transform.position; // 원래 위치 기억
@@ -82,20 +83,20 @@ public class BattleUnit : MonoBehaviour
         if (isBack)
         {
             // 1. 뒷모습 리소스가 할당되어 있다면 그걸로 교체
-            if (backSprite != null) 
+            if (backSprite != null)
             {
                 spriteRenderer.sprite = backSprite;
             }
             // 2. 리소스가 없다면 임시로 색상을 어둡게 칠해 뒷모습임을 명시
-            else 
+            else
             {
-                spriteRenderer.color = Color.gray; 
+                spriteRenderer.color = Color.gray;
             }
         }
         else
         {
             // 앞모습으로 원상 복구
-            if (frontSprite != null) 
+            if (frontSprite != null)
             {
                 spriteRenderer.sprite = frontSprite;
             }
