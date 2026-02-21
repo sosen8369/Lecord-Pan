@@ -1,76 +1,195 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using UnityEngine;
 
 public class TurnManager : MonoBehaviour
 {
-    // 팀원의 매니저를 이 인터페이스로 참조합니다.
-    [SerializeField] private RhythmGameManager _rhythmManager; 
-    
-    // 현재 턴의 취소를 관리할 토큰
+    [Header("Dependencies")]
+    [SerializeField] private GameObject _rhythmManagerObject;
+    private IRhythmSystem _rhythmManager;
     private CancellationTokenSource _currentTurnCTS;
 
-    // --- 1. 턴 진행 로직 ---
-    public async Awaitable ProcessPlayerTurn()
+    [Header("Party Management")]
+    // 1~4명까지 자유롭게 넣을 수 있습니다. 
+    // 전투 중 교체하고 싶다면 이 리스트의 요소를 바꿔치기하면 됩니다.
+    public List<BattleUnit> playerParty = new List<BattleUnit>();
+    public List<BattleUnit> enemyParty = new List<BattleUnit>();
+
+    private async void Start()
     {
-        Debug.Log("플레이어 턴 시작: 공격 행동 선택됨");
-        string chartId = "Attack_01";
+        _rhythmManager = _rhythmManagerObject.GetComponent<IRhythmSystem>();
+        await StartBattleLoop();
+    }
+
+    private async Awaitable StartBattleLoop()
+    {
+        Debug.Log("=== 페이즈 기반 전투 시작 ===");
+
+        while (!CheckBattleEndCondition())
+        {
+            // 1. 플레이어 페이즈 (앞에서부터 순서대로)
+            await PlayerPhase();
+            if (CheckBattleEndCondition()) break;
+
+            // 2. 적군 페이즈 (앞에서부터 순서대로)
+            await EnemyPhase();
+            if (CheckBattleEndCondition()) break;
+        }
+    }
+
+    // --- 플레이어 페이즈 (1~4명 순차 진행) ---
+    private async Awaitable PlayerPhase()
+    {
+        Debug.Log("\n[플레이어 페이즈 시작]");
         
-        // 새로운 턴이 시작될 때마다 토큰을 새로 발급해야 합니다.
+        for (int i = 0; i < playerParty.Count; i++)
+        {
+            BattleUnit currentAttacker = playerParty[i];
+            
+            // 죽은 캐릭터나 빈자리는 건너뜀
+            if (currentAttacker == null || currentAttacker.IsDead) continue;
+
+            Debug.Log($"--- {currentAttacker.unitName}의 행동 차례 ---");
+
+            // [중요] 타겟팅 대기: 플레이어가 UI에서 적을 클릭할 때까지 여기서 멈춰서 기다립니다.
+            BattleUnit target = await WaitForPlayerTargetSelection(currentAttacker);
+
+            if (target != null)
+            {
+                await ExecutePlayerAttack(currentAttacker, target);
+            }
+            
+            if (CheckBattleEndCondition()) return;
+        }
+    }
+
+    // --- 적군 페이즈 ---
+    private async Awaitable EnemyPhase()
+    {
+        Debug.Log("\n[적군 페이즈 시작]");
+
+        for (int i = 0; i < enemyParty.Count; i++)
+        {
+            BattleUnit currentEnemy = enemyParty[i];
+            
+            if (currentEnemy == null || currentEnemy.IsDead) continue;
+
+            // 적의 타겟팅 AI (단순히 살아있는 첫 번째 아군을 타겟으로 잡음)
+            BattleUnit targetPlayer = playerParty.FirstOrDefault(u => u != null && !u.IsDead);
+            
+            if (targetPlayer != null)
+            {
+                await ExecuteEnemyAttack(currentEnemy, targetPlayer);
+            }
+
+            if (CheckBattleEndCondition()) return;
+        }
+    }
+
+    // --- 타겟팅 대기 로직 (비동기) ---
+    private async Awaitable<BattleUnit> WaitForPlayerTargetSelection(BattleUnit attacker)
+    {
+Debug.Log($"<color=green>▶ {attacker.unitName}의 턴!</color> 공격할 타겟(적)을 마우스로 클릭하세요...");
+
+        // 비동기 대기를 위한 객체 생성
+        var completionSource = new AwaitableCompletionSource<BattleUnit>();
+
+        // 1. 이벤트 구독용 로컬 함수 생성 (클릭 시 호출됨)
+        void OnEnemyClicked(BattleUnit selectedUnit)
+        {
+            // 적군 파티에 속한 놈인지 한 번 더 검증
+            if (enemyParty.Contains(selectedUnit))
+            {
+                // 대기를 풀고 선택된 타겟을 반환 (SetResult)
+                completionSource.SetResult(selectedUnit);
+            }
+        }
+
+        // 2. 이벤트 구독 (클릭 대기 시작)
+        TargetClickable.OnTargetClicked += OnEnemyClicked;
+
+        // 3. 여기서 코드 실행이 멈추고 유저가 클릭할 때까지 무한 대기함
+        BattleUnit target = await completionSource.Awaitable;
+
+        // 4. 클릭을 받아서 대기가 풀리면 이벤트 구독 해제 (메모리 누수 방지)
+        TargetClickable.OnTargetClicked -= OnEnemyClicked;
+
+        return target;
+    }
+
+    // --- 실제 리듬 게임 및 데미지 실행 ---
+    private async Awaitable ExecutePlayerAttack(BattleUnit attacker, BattleUnit target)
+    {
+        string chartId = "Player_Attack_01"; 
         _currentTurnCTS = new CancellationTokenSource();
 
         try
         {
-            // 리듬 게임 시작 명령을 내리고 대기합니다. (토큰 전달)
+            // 리듬 게임 진행 (팀원 시스템 호출)
             RhythmResult result = await _rhythmManager.PlayRhythmGameAsync(chartId, true, _currentTurnCTS.Token);
 
-            // [중요] 이 줄에 도달했다는 것은 리듬 게임이 '무사히 끝났다'는 뜻입니다.
-            Debug.Log($"공격 성공! 정확도: {result.totalAccuracy * 100}%");
-            ApplyDamageToEnemy(result.totalAccuracy);
+            float damage = 20f * result.totalAccuracy; // 공격자의 스탯을 기반으로 계산하도록 확장 가능
+            target.TakeDamage(damage);
         }
         catch (OperationCanceledException)
         {
-            // 팀원이 던진 예외를 여기서 받아냅니다.
-            // 중간에 포기했거나 HP가 0이 되어 취소된 경우 무조건 이쪽으로 빠집니다.
-            Debug.LogWarning("리듬 게임 강제 종료 감지. 데미지 계산을 건너뜁니다.");
-            ProcessGameOver(); // 또는 턴 강제 종료 로직
+            Debug.LogWarning($"[{attacker.unitName}]의 공격이 강제 취소되었습니다.");
         }
         finally
         {
-            // 메모리 누수를 막기 위해 사용이 끝난 토큰은 반드시 해제(Dispose)합니다.
             _currentTurnCTS?.Dispose();
             _currentTurnCTS = null;
         }
+
+        await Awaitable.WaitForSecondsAsync(0.5f);
     }
 
-    // --- 2. 턴 강제 종료 제어 ---
-    // 캐릭터의 HP가 0이 되거나, 유저가 '포기' 버튼을 눌렀을 때 당신이 호출할 함수
-    public void AbortCurrentTurn()
+    private async Awaitable ExecuteEnemyAttack(BattleUnit attacker, BattleUnit target)
     {
-        if (_currentTurnCTS != null && !_currentTurnCTS.IsCancellationRequested)
+        string chartId = "Enemy_Attack_01";
+        _currentTurnCTS = new CancellationTokenSource();
+
+        try
         {
-            Debug.Log("턴 매니저 -> 리듬 매니저로 강제 취소 신호 송신");
-            _currentTurnCTS.Cancel(); // 이 함수를 부르는 순간 팀원의 루프가 정지하고 예외가 발생합니다.
+            // 플레이어가 방어 리듬 게임 진행
+            RhythmResult result = await _rhythmManager.PlayRhythmGameAsync(chartId, false, _currentTurnCTS.Token);
+
+            float baseDamage = 30f;
+            float damageTaken = baseDamage * (1f - result.totalAccuracy);
+            
+            target.TakeDamage(damageTaken);
         }
+        catch (OperationCanceledException)
+        {
+            Debug.LogWarning($"[{attacker.unitName}]의 공격(플레이어 방어)이 강제 취소되었습니다.");
+        }
+        finally
+        {
+            _currentTurnCTS?.Dispose();
+            _currentTurnCTS = null;
+        }
+
+        await Awaitable.WaitForSecondsAsync(0.5f);
     }
 
-    // --- 3. 일시정지 제어 ---
-    public void TogglePause(bool isPause)
+    // 승패 체크 로직은 playerParty와 enemyParty 리스트를 각각 검사하도록 수정됨
+    private bool CheckBattleEndCondition()
     {
-        if (isPause)
+        bool isAllPlayersDead = playerParty.All(u => u == null || u.IsDead);
+        if (isAllPlayersDead)
         {
-            ShowPauseUI(); // 턴 매니저의 일시정지 캔버스 띄우기
-            _rhythmManager.PauseRhythm(); // 팀원 시스템 시간 정지 명령
+            Debug.Log("=== 패배: 아군 전멸 ===");
+            return true;
         }
-        else
-        {
-            HidePauseUI();
-            _rhythmManager.ResumeRhythm();
-        }
-    }
 
-    private void ApplyDamageToEnemy(float accuracy) { /* 데미지 연산 로직 */ }
-    private void ProcessGameOver() { /* 패배 처리 로직 */ }
-    private void ShowPauseUI() { /* UI 로직 */ }
-    private void HidePauseUI() { /* UI 로직 */ }
+        bool isAllEnemiesDead = enemyParty.All(u => u == null || u.IsDead);
+        if (isAllEnemiesDead)
+        {
+            Debug.Log("=== 승리: 적군 전멸 ===");
+            return true;
+        }
+        return false;
+    }
 }
