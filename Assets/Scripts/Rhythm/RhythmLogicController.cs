@@ -299,9 +299,12 @@ public class RhythmLogicController : MonoBehaviour
     }
 
 
+
     //Debug
+/*
     private void Start() {
         InitializeGameData("Test Battle Track", true);
         StartRhythmLoop();
     }
+    */
 }
