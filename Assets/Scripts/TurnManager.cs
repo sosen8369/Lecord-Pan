@@ -185,16 +185,7 @@ public class TurnManager : MonoBehaviour
         }
     }
 
-    private async Awaitable ExecuteSkillTurn(BattleUnit attacker)
-    {
-        // 1. 캐릭터의 고유 스킬 즉시 발동
-        attacker.UseSkill();
-        
-        // 2. 스킬 연출을 볼 수 있도록 잠깐 대기
-        await Awaitable.WaitForSecondsAsync(1.0f); 
-    }
-
-    private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, bool isEnhanced)
+private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, bool isEnhanced)
     {
         if (attacker.attackPattern == null)
         {
@@ -213,7 +204,7 @@ public class TurnManager : MonoBehaviour
             // 1. 1패드 리듬 게임 실행
             RhythmResult result = await attackGameManager.PlayAttackAsync(attacker.attackPattern);
 
-            // 2. ★ 기획자 공식 적용: 아군 공격력 = 공격력 * (100/(100+적방어력)) * (0.6 + 0.9 * 리듬계수)
+            // 2. 기획자 공식 적용: 아군 공격력 = 공격력 * (100/(100+적방어력)) * (0.6 + 0.9 * 리듬계수)
             float finalAttackPower = attacker.attackPower * attackMultiplier;
             float defenseFactor = 100f / (100f + target.defensePower);
             float rhythmFactor = 0.6f + (0.9f * result.totalAccuracy);
@@ -240,6 +231,7 @@ public class TurnManager : MonoBehaviour
         
         await Awaitable.WaitForSecondsAsync(0.5f);
     }
+
     // --- 타겟 클릭 대기 ---
     private async Awaitable<BattleUnit> WaitForPlayerTargetSelection(BattleUnit attacker)
     {
@@ -259,54 +251,6 @@ public class TurnManager : MonoBehaviour
         TargetClickable.OnTargetClicked -= OnEnemyClicked;
 
         return target;
-    }
-
-    // --- [핵심] 팀원 명세서 기반 공격 로직 ---
-    private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, bool isEnhanced)
-    {
-        if (attacker.attackPattern == null)
-        {
-            Debug.LogError($"[{attacker.unitName}]의 패턴이 없습니다!");
-            return;
-        }
-
-        try
-        {
-            // 코러스를 소모한 강화 공격이면 기본 공격력을 1.5배 뻥튀기
-            float attackMultiplier = isEnhanced ? 1.5f : 1.0f;
-            string attackType = isEnhanced ? "<color=magenta>강화 공격(1.5배)</color>" : "일반 공격";
-            
-            Debug.Log($"[시스템] {attacker.unitName}의 {attackType} 시작!");
-
-            // 1. 1패드 리듬 게임 실행
-            RhythmResult result = await attackGameManager.PlayAttackAsync(attacker.attackPattern);
-
-            // 2. ★ 기획자 공식 적용: 아군 공격력 = 공격력 * (100/(100+적방어력)) * (0.6 + 0.9 * 리듬계수)
-            float finalAttackPower = attacker.attackPower * attackMultiplier;
-            float defenseFactor = 100f / (100f + target.defensePower);
-            float rhythmFactor = 0.6f + (0.9f * result.totalAccuracy);
-
-            float finalDamage = finalAttackPower * defenseFactor * rhythmFactor;
-            
-            // 데미지 텍스트 로그 상세 출력
-            Debug.Log($"<color=cyan>[데미지 연산] 타격:{finalAttackPower} * 방어계수:{defenseFactor:F2} * 리듬계수:{rhythmFactor:F2} = 최종 {finalDamage:F1} 데미지!</color>");
-            target.TakeDamage(finalDamage);
-
-            // 3. 코러스(TP) 적립 로직 (일반 공격일 때만)
-            if (!isEnhanced) 
-            {
-                int earnedChorus = Mathf.RoundToInt(result.totalAccuracy * 15f); 
-                partyCurrentChorus += earnedChorus;
-                if (partyCurrentChorus > partyMaxChorus) partyCurrentChorus = partyMaxChorus; 
-                Debug.Log($"<color=yellow>[코러스 획득] +{earnedChorus} / 현재 코러스: {partyCurrentChorus}</color>");
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"공격 취소 또는 에러: {e.Message}");
-        }
-        
-        await Awaitable.WaitForSecondsAsync(0.5f);
     }
 
     // --- 적군 페이즈 ---

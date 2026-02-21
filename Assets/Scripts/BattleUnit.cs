@@ -103,11 +103,5 @@ public class BattleUnit : MonoBehaviour
         }
     }
 
-    public virtual void UseSkill()
-    {
-        Debug.Log($"<color=magenta>[{unitName}]의 고유 스킬 발동!</color>");
-        // TODO: 기획에 따라 파티 체력 회복, 방어력 증가 등의 효과를 여기에 작성합니다.
-    }
-
     public bool IsDead => currentHP <= 0;
 }
