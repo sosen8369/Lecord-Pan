@@ -3,24 +3,23 @@ using UnityEngine;
 public class AttackTestRunner : MonoBehaviour
 {
     [SerializeField] private AttackRhythmController attackController;
-    
-    // 예시: 1초, 2초, 3.5초 뒤에 타겟에 도달하는 3번의 공격
-    [SerializeField] private float[] testTimings = new float[] { 1000f, 2000f, 3500f };
+    [SerializeField] private AttackPatternData testPattern; // SO 할당용 변수
 
     private void Start()
     {
-        // 결과 수신을 위한 이벤트 구독
+        if (testPattern == null)
+        {
+            Debug.LogError("테스트할 패턴 에셋(SO)이 할당되지 않았습니다.");
+            return;
+        }
+
         attackController.OnAttackFinished += HandleAttackFinished;
-        
-        // 공격 세션 시작
-        attackController.StartAttack(testTimings);
+        attackController.StartAttack(testPattern);
     }
 
     private void HandleAttackFinished(RhythmResult result)
     {
-        Debug.Log($"공격 종료! 최종 정확도(데미지 배율): {result.totalAccuracy}, 최대 콤보: {result.maxCombo}");
-        
-        // 테스트 종료 후 이벤트 구독 해제
+        Debug.Log($"공격 종료! 최종 정확도(데미지 배율): {result.totalAccuracy}");
         attackController.OnAttackFinished -= HandleAttackFinished;
     }
 }

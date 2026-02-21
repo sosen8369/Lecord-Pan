@@ -828,16 +828,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AttackTestRunner
   attackController: {fileID: 1961504709}
-  testTimings:
-  - 2000
-  - 2500
-  - 3000
-  - 3500
-  - 5000
-  - 5500
-  - 5750
-  - 6000
-  - 6500
+  testPattern: {fileID: 11400000, guid: ed11378f8f96e2d41add9452ddd1df9c, type: 2}
 --- !u!114 &1961504707
 MonoBehaviour:
   m_ObjectHideFlags: 0

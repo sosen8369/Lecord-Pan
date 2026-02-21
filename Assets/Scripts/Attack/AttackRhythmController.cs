@@ -27,32 +27,38 @@ public class AttackRhythmController : MonoBehaviour
     private int totalBars = 0;
 
     // 다중 공격 타이밍 배열을 인자로 받아 공격 세션을 시작합니다.
-    public void StartAttack(float[] timingsMs)
-{
-    // 1. 풀 매니저 존재 여부 및 초기화 확인
-    if (poolManager == null)
+    public void StartAttack(AttackPatternData pattern)
     {
-        Debug.LogError("Pool Manager가 할당되지 않았습니다!");
-        return;
+        if (poolManager == null)
+        {
+            Debug.LogError("Pool Manager가 할당되지 않았습니다!");
+            return;
+        }
+
+        poolManager.Initialize(); 
+
+        // 1. 전달받은 SO 데이터를 기반으로 절대 시간 계산
+        totalBars = pattern.relativeTimingsMs.Length;
+        attackTimingsMs = new float[totalBars];
+
+        for (int i = 0; i < totalBars; i++)
+        {
+            // 시작 마진 + 개별 타이밍으로 실제 도달 시간 확정
+            attackTimingsMs[i] = pattern.startMarginMs + pattern.relativeTimingsMs[i];
+        }
+
+        // 2. 초기화 작업
+        nextSpawnIndex = 0;
+        currentMs = 0f;
+        
+        activeBars.Clear();
+        barQueue.Clear();
+        
+        if (judgmentManager != null)
+            judgmentManager.Initialize();
+        
+        isPlaying = true;
     }
-
-    // 풀 매니저의 Initialize를 호출하여 딕셔너리와 실제 객체들을 생성합니다.
-    poolManager.Initialize(); 
-
-    // 2. 데이터 초기화
-    attackTimingsMs = timingsMs;
-    totalBars = timingsMs.Length;
-    nextSpawnIndex = 0;
-    currentMs = 0f;
-    
-    activeBars.Clear();
-    barQueue.Clear();
-    
-    if (judgmentManager != null)
-        judgmentManager.Initialize();
-    
-    isPlaying = true;
-}
 
     private void Update()
     {
