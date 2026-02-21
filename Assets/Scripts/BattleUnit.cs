@@ -16,14 +16,14 @@ public class BattleUnit : MonoBehaviour
 
     [Header("연출(Focus) 설정")]
     public GameObject spotlight; // 캐릭터 자식으로 있는 스포트라이트 오브젝트 연결
-    private Vector3 _originalPosition;
+    public Vector3 originalPosition{get; private set;}
 
     // 캐릭터 사망 시 턴 매니저나 UI 시스템에 즉시 알리기 위한 이벤트
     public event Action<BattleUnit> OnDeath;
     private void Awake() 
     {
         currentHP = maxHP;
-        _originalPosition = transform.position; // 원래 위치 기억
+        originalPosition = transform.position; // 원래 위치 기억
         if (spotlight != null) spotlight.SetActive(false); // 시작할 땐 스포트라이트 끄기
     }
 
@@ -33,13 +33,13 @@ public class BattleUnit : MonoBehaviour
         if (isFocused)
         {
             // Z축(또는 Y축)으로 살짝 튀어나오게 설정 (게임 카메라 뷰에 따라 Vector3 값 수정 필요)
-            transform.position = _originalPosition + new Vector3(2f, 0, 0);
+            transform.position = originalPosition + new Vector3(2f, 0, 0);
             if (spotlight != null) spotlight.SetActive(true);
         }
         else
         {
             // 원래 자리로 복귀
-            transform.position = _originalPosition;
+            transform.position = originalPosition;
             if (spotlight != null) spotlight.SetActive(false);
         }
     }
@@ -88,6 +88,6 @@ public class BattleUnit : MonoBehaviour
             spriteRenderer.color = Color.white;
         }
     }
-    
+
     public bool IsDead => currentHP <= 0;
 }

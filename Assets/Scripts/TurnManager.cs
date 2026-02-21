@@ -28,6 +28,9 @@ public class TurnManager : MonoBehaviour
     public Camera mainCamera; // 씬의 메인 카메라
     public Transform defenseCameraView; // 4패드 방어 시 바라볼 카메라의 위치/각도 (빈 오브젝트로 씬에 배치)
 
+    // ★ 방어 할때만 위치를 일직선으로 바꾸어야 함
+    public List<Transform> defensePositions;
+
     private Vector3 _originalCamPos;
     private Quaternion _originalCamRot;
 
@@ -46,31 +49,71 @@ public class TurnManager : MonoBehaviour
         }
     }
 
-    private async Awaitable MoveCameraAsync(Vector3 targetPos, Quaternion targetRot, float duration)
+    // --- 카메라와 캐릭터 진형을 동시에 부드럽게 이동 ---
+    private async Awaitable MoveCameraAndFormationAsync(Transform targetCamView, bool isReturning, float duration)
     {
         if (mainCamera == null) return;
 
-        Vector3 startPos = mainCamera.transform.position;
-        Quaternion startRot = mainCamera.transform.rotation;
-        float elapsed = 0f;
+        Vector3 startCamPos = mainCamera.transform.position;
+        Quaternion startCamRot = mainCamera.transform.rotation;
+        
+        Vector3 targetCamPos = targetCamView != null ? targetCamView.position : _originalCamPos;
+        Quaternion targetCamRot = targetCamView != null ? targetCamView.rotation : _originalCamRot;
 
+        // 이동 시작 전 캐릭터들의 출발 위치 기억
+        Vector3[] startPlayerPos = new Vector3[playerParty.Count];
+        for (int i = 0; i < playerParty.Count; i++)
+        {
+            if (playerParty[i] != null) startPlayerPos[i] = playerParty[i].transform.position;
+        }
+
+        float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
+            t = t * t * (3f - 2f * t); // SmoothStep (자연스러운 감속)
 
-            // 자연스러운 감속(Ease-out) 연출을 위한 SmoothStep 공식
-            t = t * t * (3f - 2f * t);
+            // 1. 카메라 부드럽게 이동
+            mainCamera.transform.position = Vector3.Lerp(startCamPos, targetCamPos, t);
+            mainCamera.transform.rotation = Quaternion.Lerp(startCamRot, targetCamRot, t);
 
-            mainCamera.transform.position = Vector3.Lerp(startPos, targetPos, t);
-            mainCamera.transform.rotation = Quaternion.Lerp(startRot, targetRot, t);
+            // 2. 캐릭터 부드럽게 진형(일직선/제자리)으로 이동
+            for (int i = 0; i < playerParty.Count; i++)
+            {
+                if (playerParty[i] != null && !playerParty[i].IsDead)
+                {
+                    Vector3 targetPos = playerParty[i].originalPosition; // 복귀할 때는 제자리로
+                    
+                    // 방어하러 갈 때 && 지정된 방어 위치(Slot)가 비어있지 않을 때
+                    if (!isReturning && defensePositions != null && i < defensePositions.Count && defensePositions[i] != null)
+                    {
+                        targetPos = defensePositions[i].position;
+                    }
 
-            await Awaitable.NextFrameAsync(); // 다음 프레임까지 대기
+                    playerParty[i].transform.position = Vector3.Lerp(startPlayerPos[i], targetPos, t);
+                }
+            }
+            
+            await Awaitable.NextFrameAsync();
         }
 
-        // 오차 보정을 위해 마지막에 정확한 목표값으로 고정
-        mainCamera.transform.position = targetPos;
-        mainCamera.transform.rotation = targetRot;
+        // 오차 보정을 위해 최종 위치로 확실하게 고정 (Snap)
+        mainCamera.transform.position = targetCamPos;
+        mainCamera.transform.rotation = targetCamRot;
+        
+        for (int i = 0; i < playerParty.Count; i++)
+        {
+            if (playerParty[i] != null && !playerParty[i].IsDead)
+            {
+                Vector3 finalPos = playerParty[i].originalPosition;
+                if (!isReturning && defensePositions != null && i < defensePositions.Count && defensePositions[i] != null)
+                {
+                    finalPos = defensePositions[i].position;
+                }
+                playerParty[i].transform.position = finalPos;
+            }
+        }
     }
 
 
@@ -210,7 +253,7 @@ public class TurnManager : MonoBehaviour
             // 방어용 카메라 앵글로 부드럽게 이동
             if (defenseCameraView != null)
             {
-                await MoveCameraAsync(defenseCameraView.position, defenseCameraView.rotation, 0.5f);
+                await MoveCameraAndFormationAsync(defenseCameraView, false, 0.5f);
             }
 
             // 4패드 리듬 게임 실행
@@ -231,8 +274,8 @@ public class TurnManager : MonoBehaviour
             turnCts = null;
 
             // 원래 시점으로 카메라 복귀
-            Debug.Log("<color=cyan>[시스템] 원래 시점으로 카메라 복귀</color>");
-            await MoveCameraAsync(_originalCamPos, _originalCamRot, 0.5f);
+            Debug.Log("<color=cyan>[시스템] 원래 시점과 진형으로 카메라 복귀</color>");
+            await MoveCameraAndFormationAsync(null, true, 0.5f);
 
             // ★ 카메라가 돌아왔으므로 아군 전체를 다시 앞모습으로 전환 명령
             foreach (var player in playerParty)
