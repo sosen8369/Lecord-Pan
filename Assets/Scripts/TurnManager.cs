@@ -3,7 +3,7 @@ using System.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
+using UnityEngine.SceneManagement;
 public class TurnManager : MonoBehaviour
 {
     [Header("Dependencies")]
@@ -212,7 +212,7 @@ public class TurnManager : MonoBehaviour
     }
 
 
-    private async Awaitable StartBattleLoop()
+private async Awaitable StartBattleLoop()
     {
         Debug.Log("=== 전투 시작 ===");
         while (!CheckBattleEndCondition())
@@ -222,6 +222,19 @@ public class TurnManager : MonoBehaviour
 
             await EnemyPhase();
             if (CheckBattleEndCondition()) break;
+        }
+
+        // --- 루프 종료 후 승패 분기 처리 ---
+        if (partyCurrentHP <= 0)
+        {
+            Debug.Log("<color=red>전투에서 패배했습니다. 게임 오버 처리가 필요합니다.</color>");
+            // TODO: 패배 시 타이틀 씬으로 가거나 게임오버 UI를 띄우는 로직
+        }
+        else
+        {
+            Debug.Log("<color=green>전투에서 승리했습니다! 2초 후 모험 맵으로 복귀합니다.</color>");
+            await Awaitable.WaitForSecondsAsync(2.0f); // 유저가 승리를 인지할 짧은 대기 시간
+            SceneManager.LoadScene("AdventureScene");
         }
     }
 
@@ -362,7 +375,7 @@ public class TurnManager : MonoBehaviour
     // --- 적군 방어 리듬 게임 로직 (공유 체력 적용) ---
     private async Awaitable ExecuteEnemyTurn(BattleUnit attacker, BattleUnit target)
     {
-        string chartId = "Test Battle Track";
+        string chartId = "Echoes_of_the_Chrome_Skull";
         turnCts = new CancellationTokenSource();
 
         try
