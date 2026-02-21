@@ -271,7 +271,7 @@ public class RhythmLogicController : MonoBehaviour
 
             // 3. 안전장치: 판정 처리 없이 화면을 아득히 벗어난 오류 노트 정리
             if (timeDiff < -judgmentManager.MissThresholdMs - 200f)
-            {
+            {   
                 activeNotes.RemoveAt(i);
                 
                 // 큐에 남아있다면 함께 정리하여 진행 불가(Block) 현상을 방지합니다.
@@ -284,5 +284,12 @@ public class RhythmLogicController : MonoBehaviour
                 poolManager.ReturnToPool(note.Data.type, note.gameObject);
             }
         }
+    }
+
+
+    //Debug
+    private void Start() {
+        InitializeGameData("Test Battle Track", true);
+        StartRhythmLoop();
     }
 }
