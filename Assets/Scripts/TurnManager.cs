@@ -286,8 +286,7 @@ private async Awaitable StartBattleLoop()
     }
 
     private async Awaitable ExecuteAttackTurn(BattleUnit attacker, BattleUnit target, bool isEnhanced)
-    {
-        if (attacker.attackPattern == null)
+    {if (attacker.attackPattern == null)
         {
             Debug.LogError($"[{attacker.unitName}]의 패턴이 없습니다!");
             return;
@@ -295,11 +294,16 @@ private async Awaitable StartBattleLoop()
 
         try
         {
-            // 코러스를 소모한 강화 공격이면 기본 공격력을 1.5배 뻥튀기
             float attackMultiplier = isEnhanced ? 1.5f : 1.0f;
             string attackType = isEnhanced ? "<color=magenta>강화 공격(1.5배)</color>" : "일반 공격";
-
+            
             Debug.Log($"[시스템] {attacker.unitName}의 {attackType} 시작!");
+
+            // ★ 새로 추가: 코러스(강화) 공격일 경우 리듬게임 시작 전에 1.5초간 컷인 연출을 보여줍니다.
+            if (isEnhanced && _commandUIManager != null)
+            {
+                await _commandUIManager.PlayEnhancedAttackSplashAsync();
+            }
 
             // 1. 1패드 리듬 게임 실행
             RhythmResult result = await attackGameManager.PlayAttackAsync(attacker.attackPattern);
@@ -310,17 +314,16 @@ private async Awaitable StartBattleLoop()
             float rhythmFactor = 0.6f + (0.9f * result.totalAccuracy);
 
             float finalDamage = finalAttackPower * defenseFactor * rhythmFactor;
-
-            // 데미지 텍스트 로그 상세 출력
+            
             Debug.Log($"<color=cyan>[데미지 연산] 타격:{finalAttackPower} * 방어계수:{defenseFactor:F2} * 리듬계수:{rhythmFactor:F2} = 최종 {finalDamage:F1} 데미지!</color>");
             target.TakeDamage(finalDamage);
 
             // 3. 코러스(TP) 적립 로직 (일반 공격일 때만)
-            if (!isEnhanced)
+            if (!isEnhanced) 
             {
-                int earnedChorus = Mathf.RoundToInt(result.totalAccuracy * 15f);
+                int earnedChorus = Mathf.RoundToInt(result.totalAccuracy * 15f); 
                 partyCurrentChorus += earnedChorus;
-                if (partyCurrentChorus > partyMaxChorus) partyCurrentChorus = partyMaxChorus;
+                if (partyCurrentChorus > partyMaxChorus) partyCurrentChorus = partyMaxChorus; 
                 Debug.Log($"<color=yellow>[코러스 획득] +{earnedChorus} / 현재 코러스: {partyCurrentChorus}</color>");
             }
         }
@@ -328,7 +331,7 @@ private async Awaitable StartBattleLoop()
         {
             Debug.LogWarning($"공격 취소 또는 에러: {e.Message}");
         }
-
+        
         await Awaitable.WaitForSecondsAsync(0.5f);
     }
 
@@ -336,6 +339,7 @@ private async Awaitable StartBattleLoop()
     private async Awaitable<BattleUnit> WaitForPlayerTargetSelection(BattleUnit attacker)
     {
         Debug.Log("타겟(적)을 마우스로 클릭하세요...");
+        if (_commandUIManager != null) _commandUIManager.ShowTargetInstruction(true);
         var completionSource = new AwaitableCompletionSource<BattleUnit>();
 
         void OnEnemyClicked(BattleUnit selectedUnit)
@@ -349,7 +353,7 @@ private async Awaitable StartBattleLoop()
         TargetClickable.OnTargetClicked += OnEnemyClicked;
         BattleUnit target = await completionSource.Awaitable;
         TargetClickable.OnTargetClicked -= OnEnemyClicked;
-
+        _commandUIManager.ShowTargetInstruction(false);
         return target;
     }
 

@@ -152,22 +152,51 @@ public class RhythmLogicController : MonoBehaviour
         // Update 루프가 동작하도록 플래그를 활성화합니다.
         isPlaying = true;
     }
-
-    public void StopAllAudio()
+public void StopAllAudio()
     {
-        // 강제 종료 시 오디오 정지 로직 대기 위치
+        // 모든 오디오 소스 재생 강제 정지 및 초기화
+        foreach (var source in audioSources)
+        {
+            if (source != null)
+            {
+                source.Stop();
+                source.clip = null; // 남아있는 오디오 클립 레퍼런스 해제
+            }
+        }
     }
 
     public void ReturnAllObjectsToPool()
     {
-        // 강제 종료 시 오브젝트 풀 반환 로직 대기 위치
+        // 화면에 남아있는(활성화된) 모든 노트를 강제로 풀(Pool)로 회수
+        for (int i = activeNotes.Count - 1; i >= 0; i--)
+        {
+            Note note = activeNotes[i];
+            if (note != null && note.gameObject.activeSelf)
+            {
+                poolManager.ReturnToPool(note.Data.type, note.gameObject);
+            }
+        }
+        activeNotes.Clear();
+
+        // 4개의 레인 큐(Queue) 내부 데이터 강제 삭제
+        for (int i = 0; i < 4; i++)
+        {
+            if (laneNoteQueues[i] != null)
+            {
+                laneNoteQueues[i].Clear();
+            }
+        }
     }
 
     public void ResetSessionData()
     {
-        // 강제 종료 시 누적 점수 및 데이터 초기화 로직 대기 위치
+        // ★ 핵심 버그 원인: 다음 생성할 노트 인덱스를 0으로 되돌리지 않으면 다음 턴에 노트가 아예 나오지 않습니다.
+        nextSpawnIndex = 0;
+        
+        isPlaying = false;
+        isPaused = false;
+        accumulatedPauseTime = 0;
     }
-
     private void Awake()
     {
         // 4개의 레인 큐 초기화

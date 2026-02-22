@@ -9,7 +9,6 @@ public class RhythmGameManager : MonoBehaviour, IRhythmSystem
 
     [Header("Sub Managers")]
     [SerializeField] private RhythmLogicController rhythmLogic; 
-    // 하위 시스템(오디오, 스포너, 판정 등)을 제어하는 래퍼 클래스 또는 개별 참조
 
     /// <summary>
     /// 턴 매니저가 호출할 리듬 게임 진입점입니다.
@@ -24,10 +23,9 @@ public class RhythmGameManager : MonoBehaviour, IRhythmSystem
         AwaitableCompletionSource<RhythmResult> completionSource = new AwaitableCompletionSource<RhythmResult>();
 
         // 2. 강제 종료(Cancel) 신호 감지 콜백 등록
-        // CancellationToken이 활성화되면 람다식 내부가 즉시 실행됩니다.
         using (cancellationToken.Register(() => 
         {
-            AbortGame(); // 내부 초기화 및 정리 작업
+            AbortGame(); 
             completionSource.SetException(new OperationCanceledException(cancellationToken));
         }))
         {
@@ -36,6 +34,12 @@ public class RhythmGameManager : MonoBehaviour, IRhythmSystem
             onGameEnd = (result) => 
             {
                 rhythmLogic.OnGameFinished -= onGameEnd; // 메모리 누수 방지를 위한 구독 해제
+                
+                // ★ 핵심 버그 픽스: 정상 종료 시에도 반드시 내부 데이터를 청소해야 다음 적의 턴에 노트가 제대로 내려옵니다.
+                rhythmLogic.StopAllAudio();
+                rhythmLogic.ReturnAllObjectsToPool();
+                rhythmLogic.ResetSessionData();
+
                 rhythmUICanvas.SetActive(false);         // UI 숨김
                 completionSource.SetResult(result);      // 턴 매니저로 결과 반환 및 대기 해제
             };
@@ -56,18 +60,12 @@ public class RhythmGameManager : MonoBehaviour, IRhythmSystem
     /// </summary>
     private void AbortGame()
     {
-        // 진행 중인 모든 프로세스 강제 중단
         rhythmLogic.StopAllAudio();
         rhythmLogic.ReturnAllObjectsToPool();
         rhythmLogic.ResetSessionData();
-        
-        // 캔버스 비활성화
         rhythmUICanvas.SetActive(false);
     }
 
-    /// <summary>
-    /// 턴 매니저의 일시정지 메뉴에서 호출할 시간 제어 함수입니다.
-    /// </summary>
     public void PauseRhythm()
     {
         rhythmLogic.PauseSystem();
